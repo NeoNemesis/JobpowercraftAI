@@ -4,12 +4,12 @@
 
 <a name="top"></a>
 
-<div align="center" style="background-color: rgb(135 131 209 / var(--tw-bg-opacity)); padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">
+<div align="center" style="background-color: rgb(135,131,209); padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">
   <a href="https://laboro.co/">
     <img src="https://laboro.co/landing/logo.svg" alt="Laboro.co Logo" width="200" />
   </a>
 </div>
-</div>
+
 
 # AIHawk – the first Jobs Applier AI Agent
 
