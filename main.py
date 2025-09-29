@@ -15,16 +15,14 @@ import re
 from src.libs.resume_and_cover_builder import ResumeFacade, ResumeGenerator, StyleManager
 from src.resume_schemas.job_application_profile import JobApplicationProfile
 from src.resume_schemas.resume import Resume
-from src.logging import logger
+from src.logger_config import logger
 from src.utils.chrome_utils import init_browser
 from src.utils.constants import (
     PLAIN_TEXT_RESUME_YAML,
     SECRETS_YAML,
     WORK_PREFERENCES_YAML,
 )
-# from ai_hawk.bot_facade import AIHawkBotFacade
-# from ai_hawk.job_manager import AIHawkJobManager
-# from ai_hawk.llm.llm_manager import GPTAnswerer
+from src.email_sender import EmailSender
 
 
 class ConfigError(Exception):
@@ -304,6 +302,119 @@ def create_cover_letter(parameters: dict, llm_api_key: str):
         raise
 
 
+def create_cover_letter_and_send_email(parameters: dict, llm_api_key: str):
+    """
+    Create a cover letter and send it via email automatically.
+    """
+    try:
+        logger.info("Generating cover letter and preparing for email sending...")
+
+        # Generate cover letter first (reuse existing logic)
+        with open(parameters["uploads"]["plainTextResume"], "r", encoding="utf-8") as file:
+            plain_text_resume = file.read()
+
+        style_manager = StyleManager()
+        available_styles = style_manager.get_styles()
+
+        if not available_styles:
+            logger.warning("No styles available. Proceeding without style selection.")
+        else:
+            choices = style_manager.format_choices(available_styles)
+            questions = [
+                inquirer.List(
+                    "style",
+                    message="Select a style for the resume:",
+                    choices=choices,
+                )
+            ]
+            style_answer = inquirer.prompt(questions)
+            if style_answer and "style" in style_answer:
+                selected_choice = style_answer["style"]
+                for style_name, (file_name, author_link) in available_styles.items():
+                    if selected_choice.startswith(style_name):
+                        style_manager.set_selected_style(style_name)
+                        logger.info(f"Selected style: {style_name}")
+                        break
+            else:
+                logger.warning("No style selected. Proceeding with default style.")
+
+        # Get job information
+        questions = [
+            inquirer.Text('job_url', message="Please enter the URL of the job description:"),
+            inquirer.Text('recipient_email', message="Enter recipient email address:"),
+            inquirer.Text('company_name', message="Enter company name:"),
+            inquirer.Text('position_title', message="Enter position title:")
+        ]
+        answers = inquirer.prompt(questions)
+        
+        job_url = answers.get('job_url')
+        recipient_email = answers.get('recipient_email')
+        company_name = answers.get('company_name')
+        position_title = answers.get('position_title')
+
+        # Generate documents
+        resume_generator = ResumeGenerator()
+        resume_object = Resume(plain_text_resume)
+        driver = init_browser()
+        resume_generator.set_resume_object(resume_object)
+        
+        resume_facade = ResumeFacade(            
+            api_key=llm_api_key,
+            style_manager=style_manager,
+            resume_generator=resume_generator,
+            resume_object=resume_object,
+            output_path=Path("data_folder/output"),
+        )
+        resume_facade.set_driver(driver)
+        resume_facade.link_to_job(job_url)
+        
+        # Generate both resume and cover letter
+        resume_base64, suggested_name = resume_facade.create_resume_pdf_job_tailored()
+        cover_letter_base64, _ = resume_facade.create_cover_letter()
+
+        # Save files
+        output_dir = Path(parameters["outputFileDirectory"]) / suggested_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        resume_path = output_dir / "resume_tailored.pdf"
+        cover_letter_path = output_dir / "cover_letter_tailored.pdf"
+        
+        # Decode and save files
+        with open(resume_path, "wb") as file:
+            file.write(base64.b64decode(resume_base64))
+        with open(cover_letter_path, "wb") as file:
+            file.write(base64.b64decode(cover_letter_base64))
+
+        logger.info(f"Documents saved: {resume_path}, {cover_letter_path}")
+
+        # Send email
+        email_config_path = Path("data_folder/email_config.yaml")
+        if not email_config_path.exists():
+            logger.warning("Email configuration not found. Creating template...")
+            from src.email_sender import create_email_template_config
+            create_email_template_config()
+            logger.info("Please configure your email settings in data_folder/email_config.yaml and run again")
+            return
+
+        email_sender = EmailSender(email_config_path)
+        success = email_sender.send_job_application(
+            recipient_email=recipient_email,
+            company_name=company_name,
+            position_title=position_title,
+            resume_path=resume_path,
+            cover_letter_path=cover_letter_path
+        )
+
+        if success:
+            logger.info(f"Job application sent successfully to {recipient_email}")
+        else:
+            logger.error("Failed to send job application email")
+
+    except Exception as e:
+        logger.exception(f"An error occurred while creating and sending job application: {e}")
+        raise
+
+
 def create_resume_pdf_job_tailored(parameters: dict, llm_api_key: str):
     """
     Logic to create a CV.
@@ -489,6 +600,10 @@ def handle_inquiries(selected_actions: List[str], parameters: dict, llm_api_key:
             if "Generate Tailored Cover Letter for Job Description" == selected_actions:
                 logger.info("Designing a personalized cover letter to enhance your job application...")
                 create_cover_letter(parameters, llm_api_key)
+                
+            if "Generate and Send Job Application via Email" == selected_actions:
+                logger.info("Generating documents and sending job application via email...")
+                create_cover_letter_and_send_email(parameters, llm_api_key)
 
         else:
             logger.warning("No actions selected. Nothing to execute.")
@@ -511,6 +626,7 @@ def prompt_user_action() -> str:
                     "Generate Resume",
                     "Generate Resume Tailored for Job Description",
                     "Generate Tailored Cover Letter for Job Description",
+                    "Generate and Send Job Application via Email",
                 ],
             ),
         ]
@@ -525,7 +641,7 @@ def prompt_user_action() -> str:
 
 
 def main():
-    """Main entry point for the AIHawk Job Application Bot."""
+    """Main entry point for the JobCraftAI Job Application System."""
     try:
         # Define and validate the data folder
         data_folder = Path("data_folder")
@@ -548,8 +664,7 @@ def main():
     except ConfigError as ce:
         logger.error(f"Configuration error: {ce}")
         logger.error(
-            "Refer to the configuration guide for troubleshooting: "
-            "https://github.com/feder-cr/Auto_Jobs_Applier_AIHawk?tab=readme-ov-file#configuration"
+            "Refer to the configuration guide for troubleshooting in the documentation."
         )
     except FileNotFoundError as fnf:
         logger.error(f"File not found: {fnf}")

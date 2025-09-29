@@ -1,0 +1,16 @@
+# JobCraftAI - Example Email Configuration
+# Created by Victor Vilches (Vilchesab)
+# 
+# Copy this file to data_folder/email_config.yaml and fill in your actual email settings
+
+# SMTP Server Configuration
+smtp_server: 'smtp.gmail.com'
+smtp_port: 587
+
+# Your email credentials
+email: 'your_email@example.com'
+password: 'your_app_password'  # Use App Password for Gmail
+sender_name: 'Your Name'
+
+# Email sending settings
+bulk_send_delay_seconds: 10  # Delay between emails when sending multiple applications
