@@ -4,7 +4,7 @@ onsite: true
 
 experience_level:
   internship: false
-  entry: true
+  entry: false
   associate: true
   mid_senior_level: true
   director: false
@@ -12,36 +12,50 @@ experience_level:
 
 job_types:
   full_time: true
-  contract: false
+  contract: true
   part_time: false
-  temporary: true
+  temporary: false
   internship: false
   other: false
-  volunteer: true
+  volunteer: false
 
 date:
   all_time: false
-  month: false
+  month: true
   week: false
-  24_hours: true
+  24_hours: false
 
 positions:
-  - Software engineer
+  - "Software Engineer"
+  - "Full Stack Developer"
+  - "Data Security Specialist"
+  - "System Developer"
+  - "IT Consultant"
+  - "DevOps Engineer"
+  - "Backend Developer"
+  - "Security Engineer"
 
 locations:
-  - Germany
+  - "Stockholm"
+  - "Uppsala"
+  - "Göteborg"
+  - "Malmö"
+  - "Remote"
+  - "Sweden"
 
 apply_once_at_company: true
 
 distance: 100
 
 company_blacklist:
-  - wayfair
-  - Crossover
+  - "wayfair"
+  - "Crossover"
 
 title_blacklist:
-  - word1
-  - word2
+  - "internship"
+  - "junior"
+  - "trainee"
 
 location_blacklist:
-  - Brazil
+  - "Brazil"
+  - "India"

@@ -1,0 +1,44 @@
+# JobCraftAI - Example Job Scraper Configuration
+# Created by Victor Vilches (Vilchesab)
+# 
+# Copy this file to data_folder/job_scraper_config.yaml and customize for your needs
+
+# Job search platforms to use
+platforms:
+  - arbetsformedlingen
+  - linkedin
+  # - thehub  # Uncomment if you want to include TheHub
+
+# Search keywords (optimize for your skills and experience)
+search_keywords:
+  - python developer
+  # - fullstack utvecklare
+  # - systemutvecklare
+  # - javautvecklare
+  # - systemadministratör
+  # - nätverksadministratör
+  # - cybersäkerhet specialist
+  # - AI utvecklare
+  # - automation engineer
+  # - backend utvecklare
+  # - frontend utvecklare
+  # - java utvecklare
+  # - C# utvecklare
+  # - javascript utvecklare
+  # - PHP utvecklare
+  # - database administrator
+  # - IT konsult
+  # - teknisk projektledare
+
+# Locations to search in
+locations:
+  - Stockholm
+  # - Uppsala
+  # - Göteborg
+  # - Malmö
+  # - Remote
+
+# Search limits (adjust based on your API limits)
+max_jobs_per_platform: 1  # Start with 1 for free OpenAI accounts
+auto_apply: false  # Set to true to automatically send applications
+email_delay_minutes: 5  # Delay between applications when auto_apply is true

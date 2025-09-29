@@ -1,0 +1,41 @@
+auto_apply: false
+email_delay_minutes: 5
+locations:
+- Stockholm
+max_jobs_per_platform: 1
+platforms:
+- arbetsformedlingen
+- linkedin
+search_keywords:
+- python developer
+# Aktivera bara 1 sökord per dag för gratis OpenAI-konto
+# - fullstack utvecklare
+# - systemutvecklare
+# Ytterligare sökord baserat på din profil och valda kategorier:
+# - javautvecklare
+# - drifttekniker
+# - mjukvaruutvecklare
+# - nätverkstekniker
+# - systemtekniker
+# - supporttekniker
+# - systemadministratör
+# - systemförvaltare
+# - spelutvecklare
+# - webbmaster
+# - webbadministratör
+# - IT-specialist
+# Aktivera 2-3 sökord åt gången för att hålla dig inom gratis OpenAI-gränsen
+# - systemadministratör
+# - nätverksadministratör
+# - cybersäkerhet specialist
+# - AI utvecklare
+# - automation engineer
+# - backend utvecklare
+# - frontend utvecklare
+# - java utvecklare
+# - C# utvecklare
+# - javascript utvecklare
+# - PHP utvecklare
+# - database administrator
+# - IT konsult
+# - teknisk projektledare
