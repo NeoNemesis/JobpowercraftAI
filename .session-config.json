@@ -1,9 +1,0 @@
-{
-  "project_name": "JobpowercraftAI",
-  "script_title": "Brutal Code Analysis + Cursor Implementation Review",
-  "git_remote": "https://github.com/NeoNemesis/JobpowercraftAI.git",
-  "default_branch": "master",
-  "ai_provider": "vertex-ai-gemini",
-  "gcp_project": "my-project-3445-1696278622939",
-  "session_date": "2025-01-24"
-}
