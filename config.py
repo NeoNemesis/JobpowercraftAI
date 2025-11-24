@@ -3,10 +3,10 @@
 from src.utils.constants import DEBUG, ERROR, LLM_MODEL, OPENAI
 
 #config related to logging must have prefix LOG_
-LOG_LEVEL = 'ERROR'
+LOG_LEVEL = 'INFO'  # Changed from ERROR to INFO to see debug logs
 LOG_SELENIUM_LEVEL = ERROR
-LOG_TO_FILE = False
-LOG_TO_CONSOLE = False
+LOG_TO_FILE = True  # Changed to True to save logs
+LOG_TO_CONSOLE = True  # Changed to True to see logs in terminal
 
 MINIMUM_WAIT_TIME_IN_SECONDS = 60
 

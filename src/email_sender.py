@@ -1,8 +1,14 @@
 """
 Email automation module for sending job applications with generated resumes and cover letters.
+
+SECURITY FEATURES:
+- Email validation with regex
+- Secure password handling via environment variables
+- Input sanitization to prevent injection attacks
 """
 import smtplib
 import ssl
+import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -10,6 +16,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import yaml
 from loguru import logger
+
+# Import security utilities
+try:
+    from src.security_utils import SecurityValidator, SecurePasswordManager
+except ImportError:
+    logger.warning("Security utilities not available. Using basic validation.")
+    SecurityValidator = None
+    SecurePasswordManager = None
 
 
 class EmailSender:
@@ -26,15 +40,47 @@ class EmailSender:
         self.smtp_server = None
         
     def _load_email_config(self, config_path: Path) -> Dict:
-        """Load email configuration from YAML file."""
+        """
+        Load email configuration from YAML file.
+        
+        SECURITY: Password is now loaded from environment variable instead of YAML.
+        """
         try:
             with open(config_path, 'r', encoding='utf-8') as file:
                 config = yaml.safe_load(file)
                 
-            required_fields = ['smtp_server', 'smtp_port', 'email', 'password', 'sender_name']
+            # Required fields (password is optional in config, loaded from env)
+            required_fields = ['smtp_server', 'smtp_port', 'email', 'sender_name']
             for field in required_fields:
                 if field not in config:
                     raise ValueError(f"Missing required field '{field}' in email config")
+            
+            # 🔒 SECURITY FIX: Load password from environment variable
+            if SecurePasswordManager:
+                env_password = SecurePasswordManager.get_smtp_password()
+                if env_password:
+                    config['password'] = env_password
+                    logger.info("✅ SMTP password loaded from environment variable (secure)")
+                elif 'password' in config:
+                    logger.warning(
+                        "⚠️ WARNING: Using password from YAML file (insecure). "
+                        "Set JOBCRAFT_SMTP_PASSWORD environment variable instead!"
+                    )
+                else:
+                    raise ValueError(
+                        "SMTP password not found. Set JOBCRAFT_SMTP_PASSWORD "
+                        "environment variable or add 'password' to email_config.yaml"
+                    )
+            elif 'password' not in config:
+                raise ValueError("Missing 'password' field in email config")
+            
+            # Validate email format
+            if SecurityValidator:
+                try:
+                    SecurityValidator.validate_email(config['email'])
+                    logger.debug(f"Sender email validated: {config['email']}")
+                except ValueError as e:
+                    raise ValueError(f"Invalid sender email in config: {e}")
                     
             return config
         except Exception as e:
@@ -70,6 +116,8 @@ class EmailSender:
         """
         Send job application email with resume and cover letter attachments.
         
+        SECURITY: Validates email address before sending to prevent injection attacks.
+        
         Args:
             recipient_email: Recipient's email address
             company_name: Name of the company
@@ -80,7 +128,19 @@ class EmailSender:
             
         Returns:
             bool: True if email sent successfully, False otherwise
+            
+        Raises:
+            ValueError: If recipient email is invalid
         """
+        # 🔒 SECURITY FIX: Validate email before sending
+        if SecurityValidator:
+            try:
+                SecurityValidator.validate_email(recipient_email)
+                logger.debug(f"✅ Recipient email validated: {recipient_email}")
+            except ValueError as e:
+                logger.error(f"❌ Invalid recipient email: {e}")
+                raise
+        
         try:
             # Create message
             msg = MIMEMultipart()

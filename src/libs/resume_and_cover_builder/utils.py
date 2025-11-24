@@ -6,8 +6,10 @@ This module contains utility functions for the Resume and Cover Letter Builder s
 import json
 import openai
 import time
+import base64
 from datetime import datetime
 from typing import Dict, List
+from pathlib import Path
 from langchain_core.messages.ai import AIMessage
 from langchain_core.prompt_values import StringPromptValue
 from langchain_openai import ChatOpenAI
@@ -23,6 +25,10 @@ class LLMLogger:
 
     @staticmethod
     def log_request(prompts, parsed_reply: Dict[str, Dict]):
+        # FIXA: Kontrollera att LOG_OUTPUT_FILE_PATH inte är None
+        if global_config.LOG_OUTPUT_FILE_PATH is None:
+            logger.warning("LOG_OUTPUT_FILE_PATH är None, skippar loggning")
+            return
         calls_log = global_config.LOG_OUTPUT_FILE_PATH / "open_ai_calls.json"
         if isinstance(prompts, StringPromptValue):
             prompts = prompts.text
@@ -129,3 +135,35 @@ class LoggerChatModel:
             },
         }
         return parsed_result
+
+
+def image_to_base64(image_path: str) -> str:
+    """
+    Convert an image file to base64 string for embedding in HTML.
+
+    Args:
+        image_path (str): Path to the image file
+
+    Returns:
+        str: Base64 encoded string of the image
+
+    Raises:
+        FileNotFoundError: If the image file doesn't exist
+        Exception: If there's an error reading the file
+    """
+    try:
+        image_path = Path(image_path)
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+
+        with open(image_path, "rb") as image_file:
+            image_data = image_file.read()
+            base64_string = base64.b64encode(image_data).decode('utf-8')
+            logger.debug(f"Successfully converted image {image_path} to base64")
+            return base64_string
+    except FileNotFoundError as e:
+        logger.error(f"Error converting image to base64: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error converting image to base64: {e}")
+        raise

@@ -27,7 +27,7 @@ class LLMResumer:
     def __init__(self, openai_api_key, strings):
         self.llm_cheap = LoggerChatModel(
             ChatOpenAI(
-                model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4
+                model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4, timeout=60
             )
         )
         self.strings = strings

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1000, initial-scale=1.0">
+    <title>CV - Victor Vilches</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        @page {
+            margin: 0;
+            size: A4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .cv-container {
+            width: 1000px;
+            max-width: 1000px;
+            background: white;
+            margin: 0 auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Elegant gradient header */
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 50px 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Dekorativa element i header */
+        .header-section::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+
+        .header-section::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: -30px;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 35px;
+        }
+
+        /* Profilbild med elegant ram */
+        .profile-image {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 5px solid white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+            background: white;
+        }
+
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Namn och titel */
+        .name-title h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 36pt;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .name-title h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 14pt;
+            font-weight: 300;
+            color: rgba(255,255,255,0.9);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 20px;
+        }
+
+        /* Kontakt med ikoner i cirklar */
+        .contact-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .contact-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 25px;
+            color: white;
+            font-size: 9.5pt;
+            backdrop-filter: blur(10px);
+        }
+
+        .contact-badge .icon {
+            width: 24px;
+            height: 24px;
+            background: white;
+            color: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11pt;
+        }
+
+        /* Vågformad separator */
+        .wave-separator {
+            width: 100%;
+            height: 50px;
+            background: white;
+            position: relative;
+            margin-top: -1px;
+        }
+
+        .wave-separator::before {
+            content: '';
+            position: absolute;
+            top: -49px;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background: white;
+            clip-path: ellipse(50% 100% at 50% 100%);
+        }
+
+        /* Main content - tvåkolumns */
+        .main-content {
+            display: flex;
+            background: white;
+        }
+
+        /* Vänster kolumn */
+        .left-column {
+            width: 65%;
+            padding: 40px 50px;
+        }
+
+        /* Höger kolumn med subtil gradient */
+        .right-column {
+            width: 35%;
+            padding: 40px 35px;
+            background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 3px solid #667eea;
+        }
+
+        /* Section styling med gradient accent */
+        .section {
+            margin-bottom: 35px;
+        }
+
+        .section-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 14pt;
+            font-weight: 600;
+            color: #2d3748;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            position: relative;
+            padding-left: 20px;
+            letter-spacing: 1px;
+        }
+
+        .section-title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+        }
+
+        /* Experience entries med elegant design */
+        .experience-entry,
+        .education-entry {
+            margin-bottom: 28px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .entry-dates {
+            font-size: 9.5pt;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: inline-block;
+            background: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+        }
+
+        .entry-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 11.5pt;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .entry-company {
+            font-size: 10pt;
+            color: #667eea;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .entry-description {
+            font-size: 10pt;
+            color: #4a5568;
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+
+        .entry-accomplishments {
+            font-size: 9.5pt;
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .entry-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .entry-list li {
+            font-size: 9.5pt;
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 6px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .entry-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+        }
+
+        /* Skills med progress bars OCH cirklar */
+        .skill-item {
+            margin-bottom: 16px;
+        }
+
+        .skill-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .skill-name {
+            font-size: 10pt;
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .skill-percentage {
+            font-size: 9pt;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Progress bar för skills */
+        .skill-progress {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .skill-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        /* Alternativ: Cirkel-rating (behålls för kompatibilitet) */
+        .skill-rating {
+            display: flex;
+            gap: 5px;
+            margin-top: 4px;
+        }
+
+        .skill-circle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .skill-circle.filled {
+            background: #667eea;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+        }
+
+        .skill-circle.empty {
+            background: white;
+        }
+
+        /* Interests med ikon-badges */
+        .interest-item {
+            margin-bottom: 18px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 3px solid #764ba2;
+        }
+
+        .interest-name {
+            font-family: 'Poppins', sans-serif;
+            font-size: 11pt;
+            font-weight: 600;
+            color: #764ba2;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .interest-name::before {
+            content: '★';
+            color: #ffd700;
+            font-size: 12pt;
+        }
+
+        .interest-description {
+            font-size: 9pt;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        /* Languages med elegant design */
+        .language-item {
+            margin-bottom: 14px;
+            padding: 12px 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .language-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .language-name {
+            font-size: 10pt;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .language-level {
+            font-size: 8.5pt;
+            color: #667eea;
+            font-weight: 500;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+
+        /* Print-optimering */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .cv-container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .main-content {
+                display: table !important;
+                table-layout: fixed !important;
+                width: 100% !important;
+            }
+            
+            .left-column {
+                display: table-cell !important;
+                width: 65% !important;
+                vertical-align: top !important;
+            }
+            
+            .right-column {
+                display: table-cell !important;
+                width: 35% !important;
+                vertical-align: top !important;
+            }
+
+            .header-section,
+            .right-column,
+            .skill-progress-fill,
+            .contact-badge,
+            .interest-item,
+            .language-item {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .experience-entry,
+            .education-entry,
+            .skill-item,
+            .interest-item,
+            .language-item {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="cv-container">
+        <!-- Elegant gradient header -->
+        <div class="header-section">
+            <div class="header-content">
+                <!-- Profilbild med elegant ram -->
+                <div class="profile-image">
+                    <img src="data:image/png;base64,$profile_image" alt="$full_name">
+                </div>
+                
+                <!-- Namn och titel -->
+                <div class="name-title">
+                    <h1>$full_name</h1>
+                    <h2>$job_title</h2>
+                    
+                    <!-- Kontakt med badges -->
+                    <div class="contact-row">
+                        $contact_badges
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vågformad separator -->
+        <div class="wave-separator"></div>
+
+        <!-- Main content - tvåkolumner -->
+        <div class="main-content">
+            <!-- Vänster kolumn - Experience & Education -->
+            <div class="left-column">
+                <!-- Summary (valfritt) -->
+                $summary_section
+                
+                <!-- Experience -->
+                <div class="section">
+                    <h3 class="section-title">$experience_title</h3>
+                    $experience_content
+                </div>
+                
+                <!-- Education -->
+                <div class="section">
+                    <h3 class="section-title">$education_title</h3>
+                    $education_content
+                </div>
+            </div>
+            
+            <!-- Höger kolumn - Skills, Languages & Interests -->
+            <div class="right-column">
+                <!-- Skills med progress bars -->
+                <div class="section">
+                    <h3 class="section-title">$skills_title</h3>
+                    $skills_content
+                </div>
+                
+                <!-- Languages -->
+                <div class="section">
+                    <h3 class="section-title">$languages_title</h3>
+                    $languages_content
+                </div>
+                
+                <!-- Interests -->
+                <div class="section">
+                    <h3 class="section-title">$interests_title</h3>
+                    $interests_content
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

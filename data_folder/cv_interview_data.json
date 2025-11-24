@@ -1,0 +1,23 @@
+{
+  "Ägare & Projektledare_Vilches Entreprenad AB": {
+    "position": "Ägare & Projektledare",
+    "company": "Vilches Entreprenad AB",
+    "period": "2020 - Present",
+    "metrics": {
+      "num_projects": "mer än 50 projekt",
+      "num_clients": "mer än 40",
+      "team_size": "mellan 1-5",
+      "budget": "mellan 20k till 300k",
+      "efficiency_improvement": "ca 20%",
+      "customer_satisfaction": "98%"
+    },
+    "achievements": [
+      "att jag har byggt allt själv från grunden."
+    ],
+    "technologies": [],
+    "context": {
+      "challenges": "Veta hur man tar sig vidare i utveckling.",
+      "solutions": "genom att prata med teamet."
+    }
+  }
+}
