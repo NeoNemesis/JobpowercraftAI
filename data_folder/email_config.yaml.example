@@ -1,0 +1,37 @@
+# JobCraftAI - Email Configuration EXAMPLE
+# Created by Victor Vilches (Vilchesab)
+#
+# 🔒 SÄKERHETSUPPDATERING:
+# ----------------------
+# Lösenord ska INTE längre lagras i denna fil!
+# Använd environment variable istället: JOBCRAFT_SMTP_PASSWORD
+#
+# För Gmail App Password:
+# 1. Aktivera 2-faktor-autentisering på ditt Google-konto
+# 2. Gå till: https://myaccount.google.com/apppasswords
+# 3. Generera ett app-lösenord för "Mail"
+# 4. Sätt environment variable:
+#    Windows: $env:JOBCRAFT_SMTP_PASSWORD = "xxxx xxxx xxxx xxxx"
+#    Linux/Mac: export JOBCRAFT_SMTP_PASSWORD="xxxx xxxx xxxx xxxx"
+
+# SMTP Server Configuration
+smtp_server: 'smtp.gmail.com'  # För Gmail
+smtp_port: 587
+
+# Your email address
+email: 'din.email@gmail.com'
+
+# ⚠️ VIKTIGT: Ta bort password-raden nedan!
+# Password hämtas nu automatiskt från environment variable
+# password: 'ANVÄND INTE DETTA - TA BORT DENNA RAD'
+
+# Your full name (shown in emails)
+sender_name: 'Ditt Fullständiga Namn'
+
+# Optional: Email signature
+signature: |
+  Med vänliga hälsningar,
+  Ditt Namn
+  Telefon: +46 70 123 45 67
+  LinkedIn: linkedin.com/in/dittnamnj
+

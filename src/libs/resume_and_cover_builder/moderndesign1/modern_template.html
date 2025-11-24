@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Victor Vilches CV</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @page {
+            margin: 0;
+            size: A4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .cv-container {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            display: flex;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .vertical-line {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+            background-color: #1a365d;
+        }
+
+        .left-column {
+            width: 35%;
+            background: #f8f9fa;
+            padding: 2rem;
+            padding-left: 3rem;
+        }
+
+        .right-column {
+            width: 65%;
+            padding: 0;
+        }
+
+        .profile-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 0 auto 2rem;
+            overflow: hidden;
+            background: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header h2 {
+            font-size: 1.2rem;
+            font-weight: normal;
+            margin-bottom: 1rem;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .experience {
+            padding: 2rem;
+        }
+
+        .experience-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .experience-title {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .experience-company {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .experience-description {
+            font-size: 0.9rem;
+            color: #444;
+            line-height: 1.4;
+        }
+
+        .education-item, .knowledge-item {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .technical-skills {
+            margin-top: 1.5rem;
+        }
+
+        .technical-skills ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .technical-skills li {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #444;
+        }
+
+        @media (max-width: 768px) {
+            .cv-container {
+                flex-direction: column;
+            }
+            .left-column, .right-column {
+                width: 100%;
+            }
+            .vertical-line {
+                width: 100%;
+                height: 6px;
+                bottom: auto;
+            }
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: none;
+            }
+            .cv-container {
+                box-shadow: none;
+                width: 100%;
+            }
+            .download-button {
+                display: none;
+            }
+            .header {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .vertical-line {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+    <script>
+        function downloadPDF() {
+            const element = document.querySelector('.cv-container');
+            const opt = {
+                margin: 0,
+                filename: 'victor-vilches-cv.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    logging: true,
+                    letterRendering: true
+                },
+                jsPDF: {
+                    unit: 'mm',
+                    format: 'a4',
+                    orientation: 'portrait'
+                }
+            };
+
+            // Ta bort padding temporärt för PDF-generering
+            document.body.style.padding = '0';
+
+            // Generera PDF
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Återställ padding efter PDF-generering
+                document.body.style.padding = '2rem';
+            });
+        }
+
+        // Hantera profilbild
+        window.onload = function() {
+            const imgElement = document.querySelector('.profile-image img');
+            if(imgElement) {
+                imgElement.crossOrigin = "Anonymous";
+                imgElement.onload = function() {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = this.naturalWidth;
+                    canvas.height = this.naturalHeight;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(this, 0, 0);
+                    try {
+                        const dataUrl = canvas.toDataURL("image/jpeg");
+                        this.src = dataUrl;
+                    } catch(e) {
+                        console.log("Kunde inte konvertera bilden till base64:", e);
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    $body
+
+    <button onclick="downloadPDF()" class="download-button" style="position: fixed; bottom: 20px; right: 20px; padding: 10px 20px; background: #1a365d; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 1000;">
+        Ladda ner som PDF
+    </button>
+</body>
+</html>

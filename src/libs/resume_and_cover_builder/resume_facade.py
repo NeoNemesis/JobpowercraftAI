@@ -105,7 +105,7 @@ class ResumeFacade:
         suggested_name = hashlib.md5(self.job.link.encode()).hexdigest()[:10]
         
         result = HTML_to_PDF(html_resume, self.driver)
-        self.driver.quit()
+        # ✅ PERFORMANCE FIX: Don't quit driver! Browser pool manages lifecycle
         return result, suggested_name
     
     
@@ -125,7 +125,7 @@ class ResumeFacade:
         
         html_resume = self.resume_generator.create_resume(style_path)
         result = HTML_to_PDF(html_resume, self.driver)
-        self.driver.quit()
+        # ✅ PERFORMANCE FIX: Don't quit driver! Browser pool manages lifecycle
         return result
 
     def create_cover_letter(self) -> tuple[bytes, str]:
@@ -149,5 +149,5 @@ class ResumeFacade:
 
         
         result = HTML_to_PDF(cover_letter_html, self.driver)
-        self.driver.quit()
+        # ✅ PERFORMANCE FIX: Don't quit driver! Browser pool manages lifecycle
         return result, suggested_name

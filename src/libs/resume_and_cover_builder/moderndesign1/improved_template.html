@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1000, initial-scale=1.0">
+    <title>CV - Victor Vilches</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 0;
+            margin: 0;
+        }
+
+        .cv-container {
+            width: 1000px;
+            max-width: 1000px;
+            background: white;
+            display: flex;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
+            margin: 0 auto;
+        }
+        
+        /* För print: använd table istället för flex */
+        @media print {
+            .cv-container {
+                display: table !important;
+                table-layout: fixed !important;
+            }
+        }
+
+        /* Vertikal blå linje på vänster sida */
+        .vertical-line {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+            background-color: #1a365d;
+            z-index: 10;
+        }
+
+        .left-column {
+            width: 35%;
+            background: #f8f9fa;
+            padding: 2rem;
+            padding-left: 3rem; /* Extra utrymme för vertikal linje */
+        }
+
+        .right-column {
+            width: 65%;
+            padding: 0;
+        }
+
+        .profile-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            margin: 0 auto 2rem;
+            overflow: hidden;
+            background: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header h2 {
+            font-size: 1.2rem;
+            font-weight: normal;
+            margin-bottom: 1rem;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .experience {
+            padding: 2rem;
+        }
+
+        .experience-item {
+            margin-bottom: 1.5rem;
+        }
+
+        .experience-title {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+            color: #333;
+        }
+
+        .experience-company {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .experience-description {
+            font-size: 0.9rem;
+            color: #444;
+            line-height: 1.4;
+        }
+
+        /* Alla items i vänster kolumn */
+        .education-item, 
+        .skill-item, 
+        .knowledge-item, 
+        .language-item {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Institution text (under utbildning) */
+        .institution {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 0.2rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .contact-item .icon {
+            margin-right: 0.5rem;
+        }
+
+        /* Tekniska färdigheter sektion */
+        .technical-skills {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .technical-skills h4 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .technical-skills ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .technical-skills li {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #444;
+        }
+
+        /* Responsiv design för mobil */
+        @media (max-width: 768px) {
+            .cv-container {
+                flex-direction: column;
+            }
+            
+            .left-column, 
+            .right-column {
+                width: 100%;
+            }
+            
+            .vertical-line {
+                width: 100%;
+                height: 6px;
+                bottom: auto;
+            }
+            
+            .left-column {
+                padding-left: 2rem;
+            }
+        }
+
+        /* Utökad Print-optimering för PDF-generering */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .cv-container {
+                box-shadow: none;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .left-column {
+                display: table-cell !important;
+                width: 35% !important;
+                vertical-align: top !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                float: none !important;
+            }
+
+            .right-column {
+                display: table-cell !important;
+                width: 65% !important;
+                vertical-align: top !important;
+                float: none !important;
+            }
+
+            .header {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .vertical-line {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            /* Förhindra sidbrytningar */
+            .experience-item,
+            .education-item {
+                page-break-inside: avoid;
+            }
+        }
+
+        /* Förhindra sidbrytningar i viktiga element */
+        .experience-item,
+        .education-item,
+        .section {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+    <div class="cv-container">
+        <!-- Vertikal blå linje -->
+        <div class="vertical-line"></div>
+        
+        <!-- Vänster kolumn (35%) -->
+        <div class="left-column">
+            <div class="profile-image">
+                <img src="data:image/png;base64,$profile_image" alt="Profile photo">
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">$education_title</h3>
+                $education_content
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">$skills_title</h3>
+                $skills_content
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">$languages_title</h3>
+                $languages_content
+            </div>
+            
+            <div class="section">
+                <h3 class="section-title">$contact_title</h3>
+                $contact_content
+            </div>
+        </div>
+        
+        <!-- Höger kolumn (65%) -->
+        <div class="right-column">
+            <div class="header">
+                <h1>$full_name</h1>
+                <h2>$job_title</h2>
+                <p>$summary</p>
+            </div>
+            
+            <div class="experience">
+                <h3 class="section-title">$experience_title</h3>
+                $experience_content
+                
+                <div class="technical-skills">
+                    <h4>$technical_skills_title</h4>
+                    $technical_skills
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

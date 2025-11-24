@@ -29,9 +29,10 @@ def chrome_browser_options():
     options.add_argument("--disable-animations")
     options.add_argument("--disable-cache")
     options.add_argument("--incognito")
-    options.add_argument("--allow-file-access-from-files")  # Consente l'accesso ai file locali
-    options.add_argument("--disable-web-security")         # Disabilita la sicurezza web
-    logger.debug("Using Chrome in incognito mode")
+    # 🔒 SECURITY FIX: Removed --disable-web-security and --allow-file-access-from-files
+    # These flags disabled Same-Origin Policy and allowed file:// access
+    # PDF generation uses data: URLs which don't need these dangerous flags
+    logger.debug("Using Chrome in incognito mode with security enabled")
     
     return options
 
@@ -67,25 +68,38 @@ def HTML_to_PDF(html_content, driver):
     data_url = f"data:text/html;charset=utf-8,{encoded_html}"
 
     try:
+        # Aktivera CSS print media emulation FÖRE HTML laddas
+        driver.execute_cdp_cmd("Emulation.setEmulatedMedia", {
+            "media": "print"
+        })
+        
         driver.get(data_url)
-        # Attendi che la pagina si carichi completamente
-        time.sleep(2)  # Potrebbe essere necessario aumentare questo tempo per HTML complessi
-
-        # Esegue il comando CDP per stampare la pagina in PDF
+        
+        # Vänta på att sidan laddas
+        time.sleep(3)
+        
+        # Tvinga rendering genom att scrolla och vänta
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(1)
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(2)  # Total 6 sekunder - säkerställ att allt är laddat
+        
+        # Optimerade PDF-inställningar för bättre layout-bevarande
         pdf_base64 = driver.execute_cdp_cmd("Page.printToPDF", {
-            "printBackground": True,          # Includi lo sfondo nella stampa
-            "landscape": False,               # Stampa in verticale (False per ritratto)
-            "paperWidth": 8.27,               # Larghezza del foglio in pollici (A4)
-            "paperHeight": 11.69,             # Altezza del foglio in pollici (A4)
-            "marginTop": 0.8,                  # Margine superiore in pollici (circa 2 cm)
-            "marginBottom": 0.8,               # Margine inferiore in pollici (circa 2 cm)
-            "marginLeft": 0.5,                 # Margine sinistro in pollici (circa 1.27 cm)
-            "marginRight": 0.5,                # Margine destro in pollici (circa 1.27 cm)
-            "displayHeaderFooter": False,      # Non visualizzare intestazioni e piè di pagina
-            "preferCSSPageSize": True,         # Preferire le dimensioni della pagina CSS
-            "generateDocumentOutline": False,  # Non generare un sommario del documento
-            "generateTaggedPDF": False,        # Non generare PDF taggato
-            "transferMode": "ReturnAsBase64"   # Restituire il PDF come stringa base64
+            "printBackground": True,          # Inkludera bakgrund och färger
+            "landscape": False,               # Porträtt-läge
+            "paperWidth": 8.27,               # A4 bredd (210mm)
+            "paperHeight": 11.69,             # A4 höjd (297mm)
+            "marginTop": 0.2,                 # MINIMALA marginaler för max innehåll
+            "marginBottom": 0.2,              # 0.2" ≈ 0.5 cm
+            "marginLeft": 0.2,                # 0.2" ≈ 0.5 cm
+            "marginRight": 0.2,               # 0.2" ≈ 0.5 cm
+            "displayHeaderFooter": False,     # Ingen header/footer
+            "preferCSSPageSize": False,       # Använd våra paper-dimensioner
+            "scale": 0.95,                    # Liten skalning för att passa bättre
+            "generateDocumentOutline": False,
+            "generateTaggedPDF": False,
+            "transferMode": "ReturnAsBase64"
         })
         return pdf_base64['data']
     except Exception as e:

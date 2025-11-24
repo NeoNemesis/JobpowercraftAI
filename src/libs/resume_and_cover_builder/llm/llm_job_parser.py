@@ -36,7 +36,7 @@ class LLMParser:
     def __init__(self, openai_api_key):
         self.llm = LoggerChatModel(
             ChatOpenAI(
-                model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4
+                model_name="gpt-4o-mini", openai_api_key=openai_api_key, temperature=0.4, timeout=60
             )
         )
         self.llm_embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)  # Initialize embeddings
@@ -116,11 +116,13 @@ class LLMParser:
             str: The extracted information.
         """
         context = self._retrieve_context(retrieval_query)
-        
+
         prompt = ChatPromptTemplate.from_template(
             template="""
-            You are an expert in extracting specific information from job descriptions. 
+            You are an expert in extracting specific information from job descriptions.
             Carefully read the job description context below and provide a clear and concise answer to the question.
+
+            IMPORTANT: Preserve the ORIGINAL LANGUAGE of the job description. If the job description is in Swedish, respond in Swedish. If it's in English, respond in English.
 
             Context: {context}
 
@@ -144,11 +146,11 @@ class LLMParser:
     
     def extract_job_description(self) -> str:
         """
-        Extracts the company name from the job description.
+        Extracts the job description from the HTML content.
         Returns:
-            str: The extracted job description.
+            str: The extracted job description in its ORIGINAL language.
         """
-        question = "What is the job description of the company?"
+        question = "What is the job description? Provide the full description in the SAME LANGUAGE as the original text (Swedish if Swedish, English if English)."
         retrieval_query = "Job description"
         logger.debug("Starting job description extraction.")
         return self._extract_information(question, retrieval_query)

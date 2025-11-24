@@ -88,7 +88,7 @@ class OpenAIModel(AIModel):
         from langchain_openai import ChatOpenAI
 
         self.model = ChatOpenAI(
-            model_name=llm_model, openai_api_key=api_key, temperature=0.4
+            model_name=llm_model, openai_api_key=api_key, temperature=0.4, timeout=60
         )
 
     def invoke(self, prompt: str) -> BaseMessage:
@@ -219,9 +219,20 @@ class LLMLogger:
 
     @staticmethod
     def log_request(prompts, parsed_reply: Dict[str, Dict]):
+        """
+        Log LLM requests with sanitized data (NO API KEYS OR SENSITIVE INFO).
+        
+        SECURITY: This method now sanitizes prompts to remove API keys and passwords
+        before logging to prevent credential leakage.
+        """
         logger.debug("Starting log_request method")
-        logger.debug(f"Prompts received: {prompts}")
-        logger.debug(f"Parsed reply received: {parsed_reply}")
+        
+        # Import security utilities
+        try:
+            from src.security_utils import SecurityValidator
+        except ImportError:
+            logger.warning("Security utils not available, skipping prompt sanitization")
+            SecurityValidator = None
 
         try:
             calls_log = os.path.join(Path("data_folder/output"), "open_ai_calls.json")
@@ -230,38 +241,44 @@ class LLMLogger:
             logger.error(f"Error determining the log path: {str(e)}")
             raise
 
+        # Convert prompts to loggable format
         if isinstance(prompts, StringPromptValue):
             logger.debug("Prompts are of type StringPromptValue")
-            prompts = prompts.text
-            logger.debug(f"Prompts converted to text: {prompts}")
+            prompts_text = prompts.text
         elif isinstance(prompts, Dict):
             logger.debug("Prompts are of type Dict")
             try:
-                prompts = {
+                prompts_text = {
                     f"prompt_{i + 1}": prompt.content
                     for i, prompt in enumerate(prompts.messages)
                 }
-                logger.debug(f"Prompts converted to dictionary: {prompts}")
             except Exception as e:
                 logger.error(f"Error converting prompts to dictionary: {str(e)}")
                 raise
         else:
             logger.debug("Prompts are of unknown type, attempting default conversion")
             try:
-                prompts = {
+                prompts_text = {
                     f"prompt_{i + 1}": prompt.content
                     for i, prompt in enumerate(prompts.messages)
                 }
-                logger.debug(
-                    f"Prompts converted to dictionary using default method: {prompts}"
-                )
             except Exception as e:
                 logger.error(f"Error converting prompts using default method: {str(e)}")
                 raise
 
+        # 🔒 SECURITY FIX: Sanitize prompts before logging
+        if SecurityValidator:
+            if isinstance(prompts_text, str):
+                prompts_text = SecurityValidator.sanitize_for_logging(prompts_text)
+            elif isinstance(prompts_text, dict):
+                prompts_text = {
+                    key: SecurityValidator.sanitize_for_logging(str(value))
+                    for key, value in prompts_text.items()
+                }
+            logger.debug("Prompts sanitized for secure logging")
+        
         try:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            logger.debug(f"Current time obtained: {current_time}")
         except Exception as e:
             logger.error(f"Error obtaining current time: {str(e)}")
             raise
@@ -297,17 +314,22 @@ class LLMLogger:
             raise
 
         try:
+            # Sanitize reply content as well
+            reply_content = parsed_reply[CONTENT]
+            if SecurityValidator and isinstance(reply_content, str):
+                reply_content = SecurityValidator.sanitize_for_logging(reply_content)
+            
             log_entry = {
                 MODEL: model_name,
                 TIME: current_time,
-                PROMPTS: prompts,
-                REPLIES: parsed_reply[CONTENT],
+                PROMPTS: prompts_text,  # Now sanitized
+                REPLIES: reply_content,  # Now sanitized
                 TOTAL_TOKENS: total_tokens,
                 INPUT_TOKENS: input_tokens,
                 OUTPUT_TOKENS: output_tokens,
                 TOTAL_COST: total_cost,
             }
-            logger.debug(f"Log entry created: {log_entry}")
+            logger.debug("Log entry created with sanitized data")
         except KeyError as e:
             logger.error(
                 f"Error creating log entry: missing key {str(e)} in parsed_reply"
@@ -318,7 +340,7 @@ class LLMLogger:
             with open(calls_log, "a", encoding="utf-8") as f:
                 json_string = json.dumps(log_entry, ensure_ascii=False, indent=4)
                 f.write(json_string + "\n")
-                logger.debug(f"Log entry written to file: {calls_log}")
+                logger.debug(f"Secure log entry written to file: {calls_log}")
         except Exception as e:
             logger.error(f"Error writing log entry to file: {str(e)}")
             raise

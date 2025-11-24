@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1000, initial-scale=1.0">
+    <title>Cover Letter - Victor Vilches</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        @page {
+            margin: 0;
+            size: A4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .letter-container {
+            width: 1000px;
+            max-width: 1000px;
+            background: white;
+            margin: 0 auto;
+            padding: 40px 60px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 12px;
+        }
+
+        /* Header med gradient accent */
+        .letter-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 25px;
+            border-bottom: 3px solid transparent;
+            border-image: linear-gradient(90deg, #667eea 0%, #764ba2 100%) 1;
+            position: relative;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .profile-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #e0e0e0;
+            flex-shrink: 0;
+            border: 4px solid transparent;
+            background-image: linear-gradient(white, white), 
+                            linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .name-section {
+            text-align: right;
+        }
+
+        .name-section h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 22pt;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 5px;
+        }
+
+        .name-section h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 10.5pt;
+            font-weight: 400;
+            color: #764ba2;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+
+        /* Kontaktinformation med gradient accenter */
+        .contact-info {
+            font-size: 8.5pt;
+            color: #666;
+            line-height: 1.5;
+            text-align: right;
+        }
+
+        .contact-info div {
+            margin-bottom: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .contact-info .icon {
+            color: #667eea;
+            font-size: 10pt;
+        }
+
+        /* Citat med gradient accent */
+        .quote {
+            text-align: center;
+            font-style: italic;
+            font-size: 9.5pt;
+            color: #764ba2;
+            margin: 15px 0;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        /* Datum */
+        .date {
+            text-align: right;
+            font-size: 9pt;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        /* Mottagare */
+        .recipient {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .recipient h3 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 10.5pt;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .recipient .company-name {
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 3px;
+            font-size: 11pt;
+        }
+
+        .recipient .company-address {
+            font-size: 9pt;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .job-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 10.5pt;
+            font-weight: 600;
+            color: #764ba2;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            margin-bottom: 5px;
+        }
+
+        .salutation {
+            font-size: 10pt;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        /* Innehållssektioner med gradient underline */
+        .content-section {
+            margin-bottom: 18px;
+        }
+
+        .content-section h4 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 11.5pt;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            position: relative;
+        }
+
+        .content-section h4::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+
+        .content-section p {
+            font-size: 10pt;
+            color: #444;
+            line-height: 1.6;
+            text-align: justify;
+            margin-top: 8px;
+        }
+
+        /* Avslutning */
+        .closing {
+            margin-top: 25px;
+        }
+
+        .closing .sincerely {
+            font-size: 10pt;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .closing .signature {
+            font-family: 'Poppins', sans-serif;
+            font-size: 13pt;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .closing .attachment {
+            font-size: 8.5pt;
+            font-style: italic;
+            color: #666;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            display: inline-block;
+        }
+
+        /* Print-optimering */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .letter-container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+
+            .letter-header,
+            .quote,
+            .recipient,
+            .content-section h4::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
+        /* Förhindra sidbrytningar */
+        .content-section,
+        .recipient {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body>
+    <div class="letter-container">
+        <!-- Header med gradient accent -->
+        <div class="letter-header">
+            <div class="profile-section">
+                <div class="profile-image">
+                    <img src="data:image/png;base64,$profile_image" alt="Profile photo">
+                </div>
+            </div>
+            
+            <div class="name-section">
+                <h1>$full_name</h1>
+                <h2>$job_title</h2>
+                <div class="contact-info">
+                    $contact_info
+                </div>
+            </div>
+        </div>
+
+        <!-- Citat med gradient background -->
+        <div class="quote">
+            "$quote"
+        </div>
+
+        <!-- Datum -->
+        <div class="date">
+            $date
+        </div>
+
+        <!-- Mottagare -->
+        <div class="recipient">
+            <h3>$recipient_title</h3>
+            <div class="company-name">$company_name</div>
+            <div class="company-address">$company_address</div>
+            <div class="job-title">$job_application_title</div>
+            <div class="salutation">$salutation</div>
+        </div>
+
+        <!-- Innehållssektioner -->
+        <div class="content-section">
+            <h4>$section1_title</h4>
+            <p>$section1_content</p>
+        </div>
+
+        <div class="content-section">
+            <h4>$section2_title</h4>
+            <p>$section2_content</p>
+        </div>
+
+        <div class="content-section">
+            <h4>$section3_title</h4>
+            <p>$section3_content</p>
+        </div>
+
+        <!-- Avslutning -->
+        <div class="closing">
+            <div class="sincerely">$closing_text</div>
+            <div class="signature">$full_name</div>
+            <div class="attachment">$attachment_text</div>
+        </div>
+    </div>
+</body>
+</html>
+
+
