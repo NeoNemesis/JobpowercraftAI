@@ -731,40 +731,56 @@ def handle_inquiries(selected_actions: List[str], parameters: dict, llm_api_key:
         if selected_actions:
             # 2. NYTT HIERARKISKT SYSTEM - Välj modell och mall
             from src.libs.resume_and_cover_builder.model_manager import ModelAwareResumeSystem
-            
-            print("\n🎨 VÄLJER CV-MODELL OCH MALL...")
-            print("=" * 50)
-            
-            # Skapa model-aware system
-            model_system = ModelAwareResumeSystem(llm_api_key)
-            
-            # Interaktiv val av modell och mall
-            selected_model, selected_template = model_system.interactive_model_and_template_selection()
-            
-            if not selected_model or not selected_template:
-                logger.error("Modell eller mall inte vald")
-                return
-            
-            # Lägg till val i parameters för senare användning
-            parameters["selected_model"] = selected_model
-            parameters["selected_template"] = selected_template
-            
-            print(f"✅ Vald modell: {selected_model}")
-            print(f"✅ Vald mall: {selected_template}")
+
+            # ✅ FIX: Fråga endast om val saknas eller användaren vill ändra
+            if "selected_model" not in parameters or "selected_template" not in parameters:
+                print("\n🎨 VÄLJER CV-MODELL OCH MALL...")
+                print("=" * 50)
+
+                # Skapa model-aware system
+                model_system = ModelAwareResumeSystem(llm_api_key)
+
+                # Interaktiv val av modell och mall
+                selected_model, selected_template = model_system.interactive_model_and_template_selection()
+
+                if not selected_model or not selected_template:
+                    logger.error("Modell eller mall inte vald")
+                    return
+
+                # Lägg till val i parameters för senare användning
+                parameters["selected_model"] = selected_model
+                parameters["selected_template"] = selected_template
+
+                print(f"✅ Vald modell: {selected_model}")
+                print(f"✅ Vald mall: {selected_template}")
+            else:
+                # ✅ Återanvänd tidigare val
+                print(f"\n♻️  Använder tidigare val:")
+                print(f"   Modell: {parameters['selected_model']}")
+                print(f"   Mall: {parameters['selected_template']}")
             
             # 3. Kör vald funktion med modell-medvetenhet
+            if "⚙️  Change CV Model/Template Settings" == selected_actions:
+                # ✅ Rensa tidigare val så användaren kan välja igen
+                if "selected_model" in parameters:
+                    del parameters["selected_model"]
+                if "selected_template" in parameters:
+                    del parameters["selected_template"]
+                print("\n🔄 Inställningar rensade. Kör programmet igen för att välja nya inställningar.")
+                return
+
             if "Generate Resume" == selected_actions:
                 logger.info("Crafting a standout professional resume...")
                 create_resume_pdf_model_aware(parameters, llm_api_key)
-                
+
             if "Generate Resume Tailored for Job Description" == selected_actions:
                 logger.info("Customizing your resume to enhance your job application...")
                 create_resume_pdf_job_tailored_model_aware(parameters, llm_api_key)
-                
+
             if "Generate Tailored Cover Letter for Job Description" in selected_actions:
                 logger.info("Designing a personalized cover letter to enhance your job application...")
                 create_cover_letter_model_aware(parameters, llm_api_key)
-                
+
             if "Generate and Send Job Application via Email" in selected_actions:
                 logger.info("Generating documents and sending job application via email...")
                 create_cover_letter_and_send_email_model_aware(parameters, llm_api_key)
@@ -888,32 +904,7 @@ def create_cv_with_strategy(job_url: str, resume_object, llm_api_key: str, selec
         logger.error(f"❌ CV generation failed with {selected_model}: {e}")
         raise
 
-# ⚠️ DEPRECATED FUNCTIONS BELOW - USE create_cv_with_strategy() INSTEAD
-# These functions are kept for backward compatibility but will be removed in future versions
-
-def create_modern_design1_cv(job_url: str, resume_object, llm_api_key: str, selected_template: str) -> tuple:
-    """
-    ⚠️ DEPRECATED: Use create_cv_with_strategy() instead.
-    This function is kept for backward compatibility only.
-    """
-    logger.warning("⚠️ create_modern_design1_cv is DEPRECATED. Use create_cv_with_strategy() instead.")
-    return create_cv_with_strategy(job_url, resume_object, llm_api_key, "MODERN_DESIGN_1", selected_template)
-
-def create_modern_design2_cv(job_url: str, resume_object, llm_api_key: str, selected_template: str) -> tuple:
-    """
-    ⚠️ DEPRECATED: Use create_cv_with_strategy() instead.
-    This function is kept for backward compatibility only.
-    """
-    logger.warning("⚠️ create_modern_design2_cv is DEPRECATED. Use create_cv_with_strategy() instead.")
-    return create_cv_with_strategy(job_url, resume_object, llm_api_key, "MODERN_DESIGN_2", selected_template)
-
-def create_original_cv(job_url: str, resume_object, llm_api_key: str, selected_template: str) -> tuple:
-    """
-    ⚠️ DEPRECATED: Use create_cv_with_strategy() instead.
-    This function is kept for backward compatibility only.
-    """
-    logger.warning("⚠️ create_original_cv is DEPRECATED. Use create_cv_with_strategy() instead.")
-    return create_cv_with_strategy(job_url, resume_object, llm_api_key, "URSPRUNGLIGA", selected_template)
+# Deprecated functions removed - use create_cv_with_strategy() or ModelAwareResumeSystem instead
 
 def create_resume_pdf_job_tailored_model_aware(parameters: dict, llm_api_key: str):
     """
@@ -1390,6 +1381,7 @@ def prompt_user_action() -> str:
                     "Generate Resume Tailored for Job Description",
                     "Generate Tailored Cover Letter for Job Description",
                     "Generate and Send Job Application via Email",
+                    "⚙️  Change CV Model/Template Settings",
                 ],
             ),
         ]

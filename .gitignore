@@ -85,3 +85,12 @@ tests/
 *.bak
 *.backup
 *_backup
+
+# Session and cleanup files
+.session-config.json
+.cleanup_script.sh
+*STÄDNING*.txt
+*STÄDNING*.md
+
+# Log directory
+log/
