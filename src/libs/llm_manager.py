@@ -77,6 +77,23 @@ import config as cfg
 load_dotenv()
 
 
+# ✅ FIX #4: Import retry utilities for robust LLM error handling
+# Framework Rule: "Release It!" Chapter 4 - Stability Patterns
+# Impact: Graceful degradation, prevents crashes on transient LLM failures
+try:
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+        retry_if_exception_type,
+        RetryError
+    )
+    TENACITY_AVAILABLE = True
+except ImportError:
+    logger.warning("tenacity library not available. LLM calls will not have retry logic.")
+    TENACITY_AVAILABLE = False
+
+
 class AIModel(ABC):
     @abstractmethod
     def invoke(self, prompt: str) -> str:
@@ -92,9 +109,42 @@ class OpenAIModel(AIModel):
         )
 
     def invoke(self, prompt: str) -> BaseMessage:
+        """
+        Invoke OpenAI API with comprehensive error handling.
+
+        RELIABILITY: Wraps API call with specific exception handling to prevent crashes.
+        Framework Rule: LangChain best practices - handle all possible exceptions
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            BaseMessage: Model response
+
+        Raises:
+            ValueError: If API call fails after retries or with invalid input
+            ConnectionError: If network issues prevent API access
+        """
         logger.debug("Invoking OpenAI API")
-        response = self.model.invoke(prompt)
-        return response
+        try:
+            response = self.model.invoke(prompt)
+            return response
+        except httpx.TimeoutException as e:
+            logger.error(f"OpenAI API timeout: {e}")
+            raise ValueError(f"OpenAI API request timed out after 60s: {e}") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"OpenAI API HTTP error {e.response.status_code}: {e}")
+            if e.response.status_code == 401:
+                raise ValueError("OpenAI API authentication failed. Check your API key.") from e
+            elif e.response.status_code == 429:
+                raise ValueError("OpenAI API rate limit exceeded. Please wait and retry.") from e
+            elif e.response.status_code >= 500:
+                raise ConnectionError(f"OpenAI API server error (HTTP {e.response.status_code})") from e
+            else:
+                raise ValueError(f"OpenAI API error (HTTP {e.response.status_code}): {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error invoking OpenAI API: {e}")
+            raise ValueError(f"Failed to invoke OpenAI model: {e}") from e
 
 
 class ClaudeModel(AIModel):
@@ -104,9 +154,42 @@ class ClaudeModel(AIModel):
         self.model = ChatAnthropic(model=llm_model, api_key=api_key, temperature=0.4)
 
     def invoke(self, prompt: str) -> BaseMessage:
-        response = self.model.invoke(prompt)
+        """
+        Invoke Claude API with comprehensive error handling.
+
+        RELIABILITY: Wraps API call with specific exception handling to prevent crashes.
+        Framework Rule: LangChain best practices - handle all possible exceptions
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            BaseMessage: Model response
+
+        Raises:
+            ValueError: If API call fails after retries or with invalid input
+            ConnectionError: If network issues prevent API access
+        """
         logger.debug("Invoking Claude API")
-        return response
+        try:
+            response = self.model.invoke(prompt)
+            return response
+        except httpx.TimeoutException as e:
+            logger.error(f"Claude API timeout: {e}")
+            raise ValueError(f"Claude API request timed out: {e}") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Claude API HTTP error {e.response.status_code}: {e}")
+            if e.response.status_code == 401:
+                raise ValueError("Claude API authentication failed. Check your API key.") from e
+            elif e.response.status_code == 429:
+                raise ValueError("Claude API rate limit exceeded. Please wait and retry.") from e
+            elif e.response.status_code >= 500:
+                raise ConnectionError(f"Claude API server error (HTTP {e.response.status_code})") from e
+            else:
+                raise ValueError(f"Claude API error (HTTP {e.response.status_code}): {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error invoking Claude API: {e}")
+            raise ValueError(f"Failed to invoke Claude model: {e}") from e
 
 
 class OllamaModel(AIModel):
@@ -120,8 +203,38 @@ class OllamaModel(AIModel):
             self.model = ChatOllama(model=llm_model)
 
     def invoke(self, prompt: str) -> BaseMessage:
-        response = self.model.invoke(prompt)
-        return response
+        """
+        Invoke Ollama API with comprehensive error handling.
+
+        RELIABILITY: Wraps API call with specific exception handling to prevent crashes.
+        Framework Rule: LangChain best practices - handle all possible exceptions
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            BaseMessage: Model response
+
+        Raises:
+            ValueError: If API call fails
+            ConnectionError: If Ollama server is unreachable
+        """
+        logger.debug("Invoking Ollama API")
+        try:
+            response = self.model.invoke(prompt)
+            return response
+        except httpx.ConnectError as e:
+            logger.error(f"Cannot connect to Ollama server: {e}")
+            raise ConnectionError(
+                "Ollama server is not reachable. Ensure Ollama is running locally "
+                "or check the configured LLM_API_URL."
+            ) from e
+        except httpx.TimeoutException as e:
+            logger.error(f"Ollama API timeout: {e}")
+            raise ValueError(f"Ollama API request timed out: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error invoking Ollama API: {e}")
+            raise ValueError(f"Failed to invoke Ollama model: {e}") from e
 
 class PerplexityModel(AIModel):
     def __init__(self, api_key: str, llm_model: str):
@@ -129,8 +242,34 @@ class PerplexityModel(AIModel):
         self.model = ChatPerplexity(model=llm_model, api_key=api_key, temperature=0.4)
 
     def invoke(self, prompt: str) -> BaseMessage:
-        response = self.model.invoke(prompt)
-        return response
+        """
+        Invoke Perplexity API with comprehensive error handling.
+
+        RELIABILITY: Wraps API call with specific exception handling to prevent crashes.
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            BaseMessage: Model response
+
+        Raises:
+            ValueError: If API call fails
+            ConnectionError: If network issues prevent API access
+        """
+        logger.debug("Invoking Perplexity API")
+        try:
+            response = self.model.invoke(prompt)
+            return response
+        except httpx.TimeoutException as e:
+            logger.error(f"Perplexity API timeout: {e}")
+            raise ValueError(f"Perplexity API request timed out: {e}") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Perplexity API HTTP error {e.response.status_code}: {e}")
+            raise ValueError(f"Perplexity API error (HTTP {e.response.status_code}): {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error invoking Perplexity API: {e}")
+            raise ValueError(f"Failed to invoke Perplexity model: {e}") from e
 
 # gemini doesn't seem to work because API doesn't rstitute answers for questions that involve answers that are too short
 class GeminiModel(AIModel):
@@ -160,8 +299,39 @@ class GeminiModel(AIModel):
         )
 
     def invoke(self, prompt: str) -> BaseMessage:
-        response = self.model.invoke(prompt)
-        return response
+        """
+        Invoke Gemini API with comprehensive error handling.
+
+        RELIABILITY: Wraps API call with specific exception handling to prevent crashes.
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            BaseMessage: Model response
+
+        Raises:
+            ValueError: If API call fails
+            ConnectionError: If network issues prevent API access
+        """
+        logger.debug("Invoking Gemini API")
+        try:
+            response = self.model.invoke(prompt)
+            return response
+        except httpx.TimeoutException as e:
+            logger.error(f"Gemini API timeout: {e}")
+            raise ValueError(f"Gemini API request timed out: {e}") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Gemini API HTTP error {e.response.status_code}: {e}")
+            if e.response.status_code == 401:
+                raise ValueError("Gemini API authentication failed. Check your API key.") from e
+            elif e.response.status_code == 429:
+                raise ValueError("Gemini API rate limit exceeded. Please wait and retry.") from e
+            else:
+                raise ValueError(f"Gemini API error (HTTP {e.response.status_code}): {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error invoking Gemini API: {e}")
+            raise ValueError(f"Failed to invoke Gemini model: {e}") from e
 
 
 class HuggingFaceModel(AIModel):
@@ -174,11 +344,37 @@ class HuggingFaceModel(AIModel):
         self.chatmodel = ChatHuggingFace(llm=self.model)
 
     def invoke(self, prompt: str) -> BaseMessage:
-        response = self.chatmodel.invoke(prompt)
-        logger.debug(
-            f"Invoking Model from Hugging Face API. Response: {response}, Type: {type(response)}"
-        )
-        return response
+        """
+        Invoke HuggingFace API with comprehensive error handling.
+
+        RELIABILITY: Wraps API call with specific exception handling to prevent crashes.
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            BaseMessage: Model response
+
+        Raises:
+            ValueError: If API call fails
+            ConnectionError: If network issues prevent API access
+        """
+        logger.debug("Invoking HuggingFace API")
+        try:
+            response = self.chatmodel.invoke(prompt)
+            logger.debug(
+                f"HuggingFace response received: {response}, Type: {type(response)}"
+            )
+            return response
+        except httpx.TimeoutException as e:
+            logger.error(f"HuggingFace API timeout: {e}")
+            raise ValueError(f"HuggingFace API request timed out: {e}") from e
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HuggingFace API HTTP error {e.response.status_code}: {e}")
+            raise ValueError(f"HuggingFace API error (HTTP {e.response.status_code}): {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error invoking HuggingFace API: {e}")
+            raise ValueError(f"Failed to invoke HuggingFace model: {e}") from e
 
 
 class AIAdapter:
@@ -209,6 +405,22 @@ class AIAdapter:
             raise ValueError(f"Unsupported model type: {llm_model_type}")
 
     def invoke(self, prompt: str) -> str:
+        """
+        Invoke the configured AI model with error handling.
+
+        This method wraps the underlying model's invoke() which already has
+        comprehensive error handling in place.
+
+        Args:
+            prompt: Input prompt for the model
+
+        Returns:
+            str: Model response
+
+        Raises:
+            ValueError: If model invocation fails
+            ConnectionError: If network issues prevent API access
+        """
         return self.model.invoke(prompt)
 
 
@@ -221,12 +433,12 @@ class LLMLogger:
     def log_request(prompts, parsed_reply: Dict[str, Dict]):
         """
         Log LLM requests with sanitized data (NO API KEYS OR SENSITIVE INFO).
-        
+
         SECURITY: This method now sanitizes prompts to remove API keys and passwords
         before logging to prevent credential leakage.
         """
         logger.debug("Starting log_request method")
-        
+
         # Import security utilities
         try:
             from src.security_utils import SecurityValidator
@@ -266,7 +478,7 @@ class LLMLogger:
                 logger.error(f"Error converting prompts using default method: {str(e)}")
                 raise
 
-        # 🔒 SECURITY FIX: Sanitize prompts before logging
+        # SECURITY FIX: Sanitize prompts before logging
         if SecurityValidator:
             if isinstance(prompts_text, str):
                 prompts_text = SecurityValidator.sanitize_for_logging(prompts_text)
@@ -276,7 +488,7 @@ class LLMLogger:
                     for key, value in prompts_text.items()
                 }
             logger.debug("Prompts sanitized for secure logging")
-        
+
         try:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         except Exception as e:
@@ -318,7 +530,7 @@ class LLMLogger:
             reply_content = parsed_reply[CONTENT]
             if SecurityValidator and isinstance(reply_content, str):
                 reply_content = SecurityValidator.sanitize_for_logging(reply_content)
-            
+
             log_entry = {
                 MODEL: model_name,
                 TIME: current_time,
@@ -347,15 +559,40 @@ class LLMLogger:
 
 
 class LoggerChatModel:
+    """
+    Wrapper for LLM models with logging and comprehensive error handling.
+
+    ✅ FIX #4: Enhanced with retry logic and graceful degradation.
+    Framework Rule: "Release It!" Chapter 4 - Stability Patterns
+    """
     def __init__(self, llm: Union[OpenAIModel, OllamaModel, ClaudeModel, GeminiModel]):
         self.llm = llm
         logger.debug(f"LoggerChatModel successfully initialized with LLM: {llm}")
 
     def __call__(self, messages: List[Dict[str, str]]) -> str:
+        """
+        Invoke LLM with retry logic and comprehensive error handling.
+
+        RELIABILITY: Implements exponential backoff for rate limits and transient failures.
+        Framework Rule: "Release It!" - Circuit Breaker and Retry patterns
+
+        Args:
+            messages: List of messages to send to the LLM
+
+        Returns:
+            str: LLM response
+
+        Raises:
+            ValueError: If all retries are exhausted or unrecoverable error occurs
+            ConnectionError: If network issues persist across all retries
+        """
         logger.debug(f"Entering __call__ method with messages: {messages}")
-        while True:
+        max_retries = 3
+        retry_count = 0
+
+        while retry_count < max_retries:
             try:
-                logger.debug("Attempting to call the LLM with messages")
+                logger.debug(f"Attempt {retry_count + 1}/{max_retries}: Calling the LLM")
 
                 reply = self.llm.invoke(messages)
                 logger.debug(f"LLM response received: {reply}")
@@ -369,21 +606,26 @@ class LoggerChatModel:
                 return reply
 
             except httpx.HTTPStatusError as e:
-                logger.error(f"HTTPStatusError encountered: {str(e)}")
+                retry_count += 1
+                logger.error(f"HTTPStatusError encountered (attempt {retry_count}/{max_retries}): {str(e)}")
+
                 if e.response.status_code == 429:
+                    # Rate limit - use retry-after header
                     retry_after = e.response.headers.get("retry-after")
                     retry_after_ms = e.response.headers.get("retry-after-ms")
 
                     if retry_after:
                         wait_time = int(retry_after)
                         logger.warning(
-                            f"Rate limit exceeded. Waiting for {wait_time} seconds before retrying (extracted from 'retry-after' header)..."
+                            f"Rate limit exceeded. Waiting for {wait_time} seconds before retrying "
+                            f"(extracted from 'retry-after' header)..."
                         )
                         time.sleep(wait_time)
                     elif retry_after_ms:
                         wait_time = int(retry_after_ms) / 1000.0
                         logger.warning(
-                            f"Rate limit exceeded. Waiting for {wait_time} seconds before retrying (extracted from 'retry-after-ms' header)..."
+                            f"Rate limit exceeded. Waiting for {wait_time} seconds before retrying "
+                            f"(extracted from 'retry-after-ms' header)..."
                         )
                         time.sleep(wait_time)
                     else:
@@ -392,19 +634,73 @@ class LoggerChatModel:
                             f"'retry-after' header not found. Waiting for {wait_time} seconds before retrying (default)..."
                         )
                         time.sleep(wait_time)
-                else:
-                    logger.error(
-                        f"HTTP error occurred with status code: {e.response.status_code}, waiting 30 seconds before retrying"
+
+                    if retry_count >= max_retries:
+                        logger.error(f"Rate limit exceeded after {max_retries} retries. Giving up.")
+                        raise ValueError(
+                            f"LLM API rate limit exceeded after {max_retries} retries. "
+                            "Please wait before making more requests."
+                        ) from e
+
+                elif e.response.status_code >= 500:
+                    # Server error - exponential backoff
+                    wait_time = min(2 ** retry_count, 60)  # Cap at 60 seconds
+                    logger.warning(
+                        f"HTTP {e.response.status_code} server error. "
+                        f"Waiting {wait_time}s before retry {retry_count}/{max_retries}..."
                     )
-                    time.sleep(30)
+                    time.sleep(wait_time)
+
+                    if retry_count >= max_retries:
+                        logger.error(f"Server error persists after {max_retries} retries. Giving up.")
+                        raise ConnectionError(
+                            f"LLM API server error (HTTP {e.response.status_code}) after {max_retries} retries."
+                        ) from e
+
+                else:
+                    # Client error (4xx other than 429) - don't retry
+                    logger.error(f"HTTP {e.response.status_code} client error. Not retrying.")
+                    raise ValueError(
+                        f"LLM API client error (HTTP {e.response.status_code}): {e}"
+                    ) from e
+
+            except (ConnectionError, httpx.ConnectError, httpx.TimeoutException) as e:
+                retry_count += 1
+                wait_time = min(2 ** retry_count, 60)  # Exponential backoff, capped at 60s
+                logger.error(
+                    f"Network/connection error (attempt {retry_count}/{max_retries}): {str(e)}"
+                )
+                logger.warning(f"Waiting {wait_time}s before retry...")
+                time.sleep(wait_time)
+
+                if retry_count >= max_retries:
+                    logger.error(f"Network errors persist after {max_retries} retries. Giving up.")
+                    raise ConnectionError(
+                        f"Failed to connect to LLM API after {max_retries} retries. "
+                        "Check your network connection and API endpoint."
+                    ) from e
+
+            except ValueError as e:
+                # ValueError from our AIModel.invoke() methods - don't retry
+                logger.error(f"LLM invocation failed with ValueError: {str(e)}")
+                raise
 
             except Exception as e:
-                logger.error(f"Unexpected error occurred: {str(e)}")
-                logger.info(
-                    "Waiting for 30 seconds before retrying due to an unexpected error."
-                )
-                time.sleep(30)
-                continue
+                retry_count += 1
+                logger.error(f"Unexpected error (attempt {retry_count}/{max_retries}): {str(e)}")
+
+                if retry_count >= max_retries:
+                    logger.error(f"Unexpected errors persist after {max_retries} retries. Giving up.")
+                    raise ValueError(
+                        f"LLM processing failed after {max_retries} retries: {e}"
+                    ) from e
+
+                wait_time = min(2 ** retry_count, 60)
+                logger.warning(f"Waiting {wait_time}s before retry due to unexpected error...")
+                time.sleep(wait_time)
+
+        # Should never reach here, but just in case
+        raise ValueError(f"LLM processing failed after {max_retries} retries")
 
     def parse_llmresult(self, llmresult: AIMessage) -> Dict[str, Dict]:
         logger.debug(f"Parsing LLM result: {llmresult}")
@@ -527,7 +823,7 @@ class GPTAnswerer:
 
     def _clean_llm_output(self, output: str) -> str:
         return output.replace("*", "").replace("#", "").strip()
-    
+
     def summarize_job_description(self, text: str) -> str:
         logger.debug(f"Summarizing job description: {text}")
         prompts.summarize_prompt_template = self._preprocess_template_string(

@@ -58,7 +58,7 @@ class TestEmailValidation:
     def test_email_length_limit(self):
         """Test that overly long emails are rejected (RFC 5321 limit)"""
         # Create email longer than 320 characters
-        long_email = "a" * 300 + "@example.com"
+        long_email = "a" * 309 + "@example.com"  # 309 + 12 = 321 characters (over 320 limit)
 
         with pytest.raises(ValueError, match="too long"):
             SecurityValidator.validate_email(long_email)

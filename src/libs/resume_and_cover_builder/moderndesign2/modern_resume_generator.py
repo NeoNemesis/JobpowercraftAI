@@ -61,3 +61,4 @@ class ModernDesign2ResumeGenerator:
         raise NotImplementedError("create_resume_job_description_text ska anropas via ModernDesign2Facade")
 
 
+

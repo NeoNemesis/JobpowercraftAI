@@ -53,29 +53,30 @@ class SecurityValidator:
         """
         if not email or not isinstance(email, str):
             raise ValueError("Email must be a non-empty string")
-        
+
+        # SECURITY FIX #1: Check for dangerous characters BEFORE any other validation
+        # This prevents injection attacks from bypassing regex validation
+        dangerous_chars = ['|', ';', '&', '$', '`', chr(10), chr(13)]  # chr(10)=newline, chr(13)=carriage return
+        if any(char in email for char in dangerous_chars):
+            raise ValueError("Email contains invalid characters")
+
+        # SECURITY FIX #2: Check length BEFORE stripping (prevent bypass with whitespace)
+        # RFC 5321 specifies maximum 320 characters (64 local + @ + 255 domain)
+        if len(email) > 320:  # RFC 5321 max length
+            raise ValueError("Email address too long (max 320 characters)")
+
         email = email.strip()
-        
+
+        # Validate email format with regex
         if not cls.EMAIL_REGEX.match(email):
             raise ValueError(
                 f"Invalid email format: '{email}'. "
                 "Please use format: user@example.com"
             )
         
-        # Additional security checks
-        if len(email) > 320:  # RFC 5321 max length
-            raise ValueError("Email address too long (max 320 characters)")
-        
-        # Check for command injection attempts
-        dangerous_chars = ['|', ';', '&', '$', '`', '\n', '\r']
-        if any(char in email for char in dangerous_chars):
-            raise ValueError(
-                f"Email contains invalid characters: {email}"
-            )
-        
         logger.debug(f"Email validation passed: {email}")
         return True
-    
+
     @classmethod
     def validate_job_url(cls, url: str) -> bool:
         """
@@ -227,7 +228,7 @@ class SecurePasswordManager:
         return api_key
     
     @staticmethod
-    def set_environment_variable_instructions():
+    def set_environment_variable_instructions() -> str:
         """Print instructions for setting environment variables."""
         instructions = """
 ╔════════════════════════════════════════════════════════════════╗
@@ -295,11 +296,11 @@ def validate_email_batch(emails: list) -> list:
             invalid_emails.append((email, str(e)))
     
     if invalid_emails:
-        error_msg = "Invalid emails found:\n"
-        for email, reason in invalid_emails:
-            error_msg += f"  - {email}: {reason}\n"
+        # Build error message efficiently with join (O(n) not O(n²))
+        error_lines = ["Invalid emails found:"]
+        error_lines.extend(f"  - {email}: {reason}" for email, reason in invalid_emails)
+        error_msg = "\n".join(error_lines)
         raise ValueError(error_msg)
-    
     return valid_emails
 
 
