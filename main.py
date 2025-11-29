@@ -77,7 +77,7 @@ def validate_and_get_job_url() -> Optional[str]:
     return job_url
 
 
-def get_browser_instance():
+def get_browser_instance() -> webdriver.Chrome:
     """
     Get browser instance using pooling if available, fallback to init_browser().
     
@@ -114,6 +114,67 @@ def load_resume_file(resume_path: Path) -> str:
         with open(resume_path, 'r', encoding='utf-8') as file:
             return file.read()
 
+
+
+def validate_personal_info(resume_data: dict) -> bool:
+    """
+    Validate that resume data contains all required fields.
+    
+    This function ensures data integrity before processing resumes.
+    Used by tests to verify data structure compliance.
+    
+    Args:
+        resume_data: Dictionary containing resume data
+        
+    Returns:
+        bool: True if all required fields are present
+        
+    Raises:
+        ValueError: If required fields are missing
+    """
+    required_fields = [
+        'plain_text',
+        'personal_info',
+        'skills',
+        'education',
+        'work_experience'
+    ]
+    
+    missing_fields = []
+    for field in required_fields:
+        if field not in resume_data:
+            missing_fields.append(field)
+    
+    if missing_fields:
+        raise ValueError(
+            f"Resume data missing required fields: {', '.join(missing_fields)}. "
+            f"Required fields are: {', '.join(required_fields)}"
+        )
+    
+    # Validate personal_info structure
+    if isinstance(resume_data.get('personal_info'), dict):
+        personal_info = resume_data['personal_info']
+        required_personal_fields = ['name', 'email']
+        
+        missing_personal = []
+        for field in required_personal_fields:
+            if field not in personal_info:
+                missing_personal.append(field)
+        
+        if missing_personal:
+            raise ValueError(
+                f"Personal info missing required fields: {', '.join(missing_personal)}"
+            )
+        
+        # Validate email format if present
+        if 'email' in personal_info and SECURITY_ENABLED:
+            try:
+                SecurityValidator.validate_email(personal_info['email'])
+            except ValueError as e:
+                raise ValueError(f"Invalid email in personal info: {e}")
+    
+    logger.debug(f"✅ Resume data validation passed: All required fields present")
+    return True
 
 class ConfigValidator:
     """Validates configuration and secrets YAML files."""
@@ -333,7 +394,7 @@ class FileManager:
         return uploads
 
 
-def create_cover_letter(parameters: dict, llm_api_key: str):
+def create_cover_letter(parameters: dict, llm_api_key: str) -> None:
     """
     Logic to create a CV.
     """
@@ -429,7 +490,7 @@ def create_cover_letter(parameters: dict, llm_api_key: str):
         raise
 
 
-def create_cover_letter_and_send_email(parameters: dict, llm_api_key: str):
+def create_cover_letter_and_send_email(parameters: dict, llm_api_key: str) -> None:
     """
     Create a cover letter and send it via email automatically.
     """
@@ -541,7 +602,7 @@ def create_cover_letter_and_send_email(parameters: dict, llm_api_key: str):
         raise
 
 
-def create_resume_pdf_job_tailored(parameters: dict, llm_api_key: str):
+def create_resume_pdf_job_tailored(parameters: dict, llm_api_key: str) -> None:
     """
     Logic to create a CV.
     """
@@ -642,7 +703,7 @@ def create_resume_pdf_job_tailored(parameters: dict, llm_api_key: str):
         raise
 
 
-def create_resume_pdf(parameters: dict, llm_api_key: str):
+def create_resume_pdf(parameters: dict, llm_api_key: str) -> None:
     """
     Logic to create a CV.
     """
@@ -720,7 +781,7 @@ def create_resume_pdf(parameters: dict, llm_api_key: str):
         raise
 
         
-def handle_inquiries(selected_actions: List[str], parameters: dict, llm_api_key: str):
+def handle_inquiries(selected_actions: List[str], parameters: dict, llm_api_key: str) -> None:
     """
     Decide which function to call based on the selected user actions.
 
@@ -809,7 +870,7 @@ def handle_inquiries(selected_actions: List[str], parameters: dict, llm_api_key:
         raise
 
 
-def create_resume_pdf_model_aware(parameters: dict, llm_api_key: str):
+def create_resume_pdf_model_aware(parameters: dict, llm_api_key: str) -> None:
     """
     Skapar CV med modell-medvetenhet - använder vald modells AI-generator
     """
@@ -923,7 +984,7 @@ def create_cv_with_strategy(job_url: str, resume_object, llm_api_key: str, selec
 
 # Deprecated functions removed - use create_cv_with_strategy() or ModelAwareResumeSystem instead
 
-def create_resume_pdf_job_tailored_model_aware(parameters: dict, llm_api_key: str):
+def create_resume_pdf_job_tailored_model_aware(parameters: dict, llm_api_key: str) -> None:
     """
     ✅ REFACTORED: Uses Strategy Pattern instead of if/elif duplication.
     Generates job-tailored CV using selected design model.
@@ -1047,7 +1108,7 @@ def create_resume_pdf_job_tailored_model_aware(parameters: dict, llm_api_key: st
         raise
 
 
-def create_cover_letter_model_aware(parameters: dict, llm_api_key: str):
+def create_cover_letter_model_aware(parameters: dict, llm_api_key: str) -> None:
     """
     Skapar personligt brev med modell-medvetenhet - använder samma stil som valt CV
     """
@@ -1202,7 +1263,7 @@ def create_cover_letter_model_aware(parameters: dict, llm_api_key: str):
         raise
 
 
-def create_cover_letter_and_send_email_model_aware(parameters: dict, llm_api_key: str):
+def create_cover_letter_and_send_email_model_aware(parameters: dict, llm_api_key: str) -> None:
     """
     Skapar CV + personligt brev och skickar via email - med modell-medvetenhet
     """
@@ -1412,7 +1473,7 @@ def prompt_user_action() -> str:
         return ""
 
 
-def main():
+def main() -> None:
     """Main entry point for the JobCraftAI Job Application System."""
     try:
         # Define and validate the data folder
