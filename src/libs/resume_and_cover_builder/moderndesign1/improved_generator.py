@@ -70,9 +70,9 @@ class ImprovedModernDesign1Generator:
                 'skills_title': 'ÖVRIGA KUNSKAPER',
                 'languages_title': 'SPRÅK KUNSKAPER',
                 'contact_title': 'KONTAKT',
-                'experience_title': 'TEKNISK ERFARENHET & KOMPETENSER',
+                'experience_title': 'YRKESERFARENHET & KOMPETENSER',
                 'technical_skills_title': 'Tekniska Färdigheter',
-                'job_title': 'DATAINGENJÖR',
+                'job_title': 'SYSTEMUTVECKLARE',
                 'download_text': 'Ladda ner som PDF'
             },
             'en': {
@@ -80,9 +80,9 @@ class ImprovedModernDesign1Generator:
                 'skills_title': 'ADDITIONAL SKILLS',
                 'languages_title': 'LANGUAGE SKILLS',
                 'contact_title': 'CONTACT',
-                'experience_title': 'TECHNICAL EXPERIENCE & COMPETENCIES',
+                'experience_title': 'PROFESSIONAL EXPERIENCE & COMPETENCIES',
                 'technical_skills_title': 'Technical Skills',
-                'job_title': 'COMPUTER ENGINEER',
+                'job_title': 'SYSTEM DEVELOPER',
                 'download_text': 'Download as PDF'
             }
         }
@@ -118,11 +118,30 @@ class ImprovedModernDesign1Generator:
         return "Victor Vilches C.", translations['job_title'], self._get_default_summary()
     
     def _get_default_summary(self) -> str:
-        """Returnerar standard sammanfattning baserat på språk"""
-        if self.language == 'en':
-            return "Computer Engineering student with 2 of 3 years completed, specialized in system integration and Windows environments. My experience includes programming, databases and web design combined with practical experience from healthcare and entrepreneurship."
-        else:
-            return "Dataingenjörsstudent med 2 av 3 år avklarade, specialiserad inom systemintegration och Windows-miljöer. Min erfarenhet omfattar programmering, databaser och webbdesign kombinerat med praktisk erfarenhet från vården och eget företagande."
+        """Returnerar sammanfattning från YAML professional_summary"""
+        try:
+            # Hämta professional_summary från YAML
+            professional_summary = getattr(self.resume_object, 'professional_summary', '')
+            if professional_summary:
+                # Översätt till engelska om nödvändigt (eller använd som den är)
+                if self.language == 'en':
+                    # För engelska, översätt eller använd en engelsk version
+                    return "Curious system developer with broad foundational knowledge in several technical areas. Specialized in system integration and Windows environments with experience in programming, databases and web design. Values teamwork and knowledge sharing, works both independently and in collaboration with others. Driving force: continuous development and solving technical challenges."
+                else:
+                    return professional_summary
+            else:
+                # Fallback om professional_summary saknas
+                logger.warning("⚠️ Ingen professional_summary hittad, använder fallback")
+                if self.language == 'en':
+                    return "Curious system developer with broad foundational knowledge in several technical areas."
+                else:
+                    return "Nyfiken systemutvecklare med breda grundkunskaper inom flera tekniska områden."
+        except Exception as e:
+            logger.error(f"❌ Fel vid hämtning av professional_summary: {e}")
+            if self.language == 'en':
+                return "Curious system developer with broad foundational knowledge in several technical areas."
+            else:
+                return "Nyfiken systemutvecklare med breda grundkunskaper inom flera tekniska områden."
     
     def _generate_education_section(self) -> str:
         """Genererar utbildningssektion från RIKTIG data"""
@@ -383,21 +402,18 @@ class ImprovedModernDesign1Generator:
             if not experience_details:
                 logger.warning("⚠️ Ingen erfarenhet hittad, använder fallback")
                 return self._get_fallback_experience()
-            
-            # Filtrera bort Undersköterska om det är ett tech-jobb
-            tech_experiences = [exp for exp in experience_details 
-                               if 'Undersköterska' not in getattr(exp, 'position', '')]
-            
-            if not tech_experiences:
-                tech_experiences = experience_details
-            
+
+            # ✅ INKLUDERA ALLA ERFARENHETER - AI:n väljer vad som är relevant för jobbet
+            # Tidigare filtrerade vi bort Undersköterska vilket tog bort ERCP-assistent (viktig current job!)
+            all_experiences = experience_details
+
             # Om AI finns och jobbeskrivning ges, anpassa innehållet
             if self.llm and job_description:
-                logger.info("🤖 Använder AI för att anpassa erfarenheter till jobbeskrivning")
-                return self._ai_adapt_experiences(tech_experiences, job_description)
+                logger.info("🤖 Använder AI för att anpassa ALLA erfarenheter till jobbeskrivning")
+                return self._ai_adapt_experiences(all_experiences, job_description)
             else:
-                logger.info("📄 Genererar standarderfarenheter (ingen AI-anpassning)")
-                return self._format_experiences_standard(tech_experiences)
+                logger.info("📄 Genererar ALLA standarderfarenheter (ingen AI-anpassning)")
+                return self._format_experiences_standard(all_experiences)
                 
         except Exception as e:
             logger.error(f"❌ Fel vid erfarenhet: {e}")
@@ -427,7 +443,7 @@ Use these EXACT numbers and details in the descriptions where relevant!
 """
                 logger.info(f"✅ Inkluderar {len(self.job_specific_answers['answers'])} jobbspecifika svar i prompt")
 
-            prompt = f"""You are a professional CV writer. Adapt the following work experiences to match the job description.
+            prompt = f"""You are a professional CV optimizer. You may adapt up to 15% of the text to match the job, but keep 85% EXACTLY as written.
 
 Job Description:
 {job_description[:500]}
@@ -436,29 +452,57 @@ Current Experiences:
 {experiences_text}
 {job_specific_data}
 
-CRITICAL Instructions:
-1. TRANSLATE job titles to {"Swedish" if self.language == 'sv' else "English"} but PRESERVE company names exactly (e.g., "Owner & Project Manager at Vilches Entreprenad AB" if English, "Ägare & Projektledare at Vilches Entreprenad AB" if Swedish)
-2. KEEP the original structure - DO NOT reorganize or group experiences into new categories
-3. ONLY adapt the bullet point descriptions to emphasize skills relevant to the job description
-4. Keep bullet points concise (one line each, max 4 bullet points per role)
-5. Output EVERYTHING in {"Swedish" if self.language == 'sv' else "English"} including job titles and descriptions
-6. Use HTML format with classes: experience-item, experience-title, experience-company, experience-description
-7. Return ONLY the HTML, no explanations
+CRITICAL RULES:
 
-Translation examples for job titles:
-- "Ägare & Projektledare" = "Owner & Project Manager"
-- "Dataingenjör & Systemutvecklare" = "Computer Engineer & System Developer"
-- "System- & Nätverksadministratör" = "System & Network Administrator"
+1. KEEP 85% OF TEXT EXACTLY AS WRITTEN - Only adapt up to 15%
+2. ALL text MUST be in {"Swedish" if self.language == 'sv' else "English"} - NO mixed languages
+3. Translate job titles to {"Swedish" if self.language == 'sv' else "English"}
+4. You may slightly rephrase bullet points to emphasize relevant skills (max 15% change)
+5. NEVER lie or add skills that weren't mentioned
+6. Keep the ESSENCE of each job exactly as it was
 
-Format (experience-title must show "Position at Company"):
+WHAT YOU CAN DO (15% adaptation):
+- Reorder bullet points (most relevant first)
+- Slightly rephrase to emphasize relevant aspects
+- Translate job titles consistently
+- Make minor wording improvements
+
+WHAT YOU CANNOT DO:
+- Change the job type (healthcare stays healthcare, construction stays construction)
+- Add technologies or skills not mentioned
+- Remove important details
+- Exceed 15% changes
+
+LANGUAGE RULE:
+- If language is Swedish: ALL text in Swedish (translate English terms to Swedish context)
+- If language is English: ALL text in English (translate Swedish terms to English)
+- NEVER mix Swedish and English in same document
+
+EXAMPLE (Swedish job):
+
+ORIGINAL (mixed language):
+"Assistent vid avancerade endoskopiska ingrepp"
+"Worked with React and JavaScript"
+
+CORRECT (all Swedish):
+• Assistent vid avancerade endoskopiska ingrepp för diagnostik och behandling
+• Arbetade med React och JavaScript i egen verksamhet
+
+WRONG (mixed):
+• Assistent vid avancerade endoskopiska ingrepp
+• Worked with React and JavaScript
+
+Format:
 <div class="experience-item">
     <div class="experience-title">Position at Company Name</div>
     <div class="experience-company">2020 - Present</div>
     <div class="experience-description">
-        • Bullet point 1<br>
-        • Bullet point 2<br>
+        • [Bullet 1 - 85-100% original text]<br>
+        • [Bullet 2 - 85-100% original text]<br>
     </div>
 </div>
+
+Return ONLY the HTML in {"Swedish" if self.language == 'sv' else "English"}.
 """
             
             # Anropa AI
@@ -486,8 +530,14 @@ Format (experience-title must show "Position at Company"):
             period = getattr(exp, 'employment_period', '2020 - Present')
             
             responsibilities = getattr(exp, 'key_responsibilities', [])
-            resp_texts = [getattr(r, 'responsibility', '') if hasattr(r, 'responsibility') else str(r) 
-                         for r in responsibilities]
+            resp_texts = []
+            for r in responsibilities:
+                if isinstance(r, dict):
+                    resp_texts.append(r.get('responsibility', ''))
+                elif hasattr(r, 'responsibility'):
+                    resp_texts.append(getattr(r, 'responsibility', ''))
+                else:
+                    resp_texts.append(str(r) if r else '')
             
             text_parts.append(f"{position} at {company} ({period})")
             text_parts.extend([f"- {r}" for r in resp_texts[:5]])  # Max 5 bullet points
@@ -512,9 +562,15 @@ Format (experience-title must show "Position at Company"):
             # Hämta responsibilities
             responsibilities = getattr(exp, 'key_responsibilities', [])
             resp_html_parts = []
-            
+
             for resp in responsibilities[:4]:  # Max 4 bullet points
-                resp_text = getattr(resp, 'responsibility', '') if hasattr(resp, 'responsibility') else str(resp)
+                if isinstance(resp, dict):
+                    resp_text = resp.get('responsibility', '')
+                elif hasattr(resp, 'responsibility'):
+                    resp_text = getattr(resp, 'responsibility', '')
+                else:
+                    resp_text = str(resp) if resp else ''
+
                 if resp_text:
                     resp_html_parts.append(f"• {resp_text}<br>")
             
@@ -667,16 +723,55 @@ Format (experience-title must show "Position at Company"):
                 <li>• Matematik: Envariabelanalys, Logiskt tänkande, Problemlösning</li>
             </ul>'''
     
-    def generate_complete_cv_html(self, job_description: Optional[str] = None) -> str:
-        """Genererar komplett CV HTML enligt exakt design från bilden"""
+    def generate_complete_cv_html(
+        self,
+        job_description: Optional[str] = None,
+        job_description_for_language: Optional[str] = None
+    ) -> str:
+        """
+        Genererar komplett CV HTML enligt exakt design från bilden
+
+        Args:
+            job_description: Sammanfattad jobbeskrivning för CV-innehåll
+            job_description_for_language: FULL jobbeskrivning för språkdetektering (om tillgänglig)
+        """
         try:
-            # Detektera språk
-            if job_description:
-                self.language = detect_job_language(job_description)
-                logger.info(f"🌍 Detekterat språk: {self.language}")
+            # Använd FULL jobbtext för språkdetektering om tillgänglig
+            # Annars använd sammanfattad beskrivning
+            text_for_detection = job_description_for_language or job_description
+
+            # KRITISK OVERRIDE: Kontrollera om det är ett svenskt företag FÖRST
+            swedish_companies = ['läkemedelsverket', 'sigma', 'deploja', 'försvarsmakten', 'academic', 'akademiska', 'arbetsförmedlingen', 'region', 'kommun', 'landsting', 'uppsala', 'stockholm']
+
+            # Kolla om något svenskt företag nämns i jobbtexten
+            is_swedish_company = False
+            detected_company = ""
+            if text_for_detection:
+                text_lower = text_for_detection.lower()
+                for company in swedish_companies:
+                    if company in text_lower:
+                        is_swedish_company = True
+                        detected_company = company
+                        break
+
+            if is_swedish_company:
+                self.language = 'sv'
+                logger.info(f"🇸🇪 KRITISK OVERRIDE: SVENSKT FÖRETAG '{detected_company}' HITTAD I TEXT - TVINGAR SVENSKA")
+            elif text_for_detection:
+                self.language = detect_job_language(text_for_detection)
+                logger.info(f"🌍 Detekterat språk: {self.language} (baserat på {len(text_for_detection)} tecken)")
+                logger.debug(f"📝 Text för språkdetektering (första 200 tecken): {text_for_detection[:200]}")
+
+                # EXTRA SÄKERHET: Om texten har svenska tecken (å, ä, ö) men detekterades som engelska, tvinga svenska
+                if self.language == 'en' and text_for_detection:
+                    swedish_chars = sum(1 for c in text_for_detection if c in 'åäöÅÄÖ')
+                    if swedish_chars > 5:  # Om mer än 5 svenska tecken
+                        logger.warning(f"⚠️ SÄKERHETSOVERRIDE: Hittade {swedish_chars} svenska tecken men språk var 'en' - TVINGAR SVENSKA")
+                        self.language = 'sv'
             else:
                 self.language = 'sv'
-            
+                logger.warning("⚠️ Ingen jobbtext tillgänglig, använder svenska som standard")
+
             logger.info(f"🎨 Genererar KOMPLETT CV på {self.language} med RIKTIG data från resume_object")
             
             # Generera alla sektioner från RIKTIG data

@@ -4,6 +4,8 @@
 # Sensitive data - NEVER commit these
 data_folder/secrets.yaml
 data_folder/email_config.yaml
+data_folder/plain_text_resume.yaml
+data_folder/work_preferences.yaml
 data_folder/output/
 data_folder/log/
 

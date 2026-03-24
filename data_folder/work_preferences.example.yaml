@@ -1,0 +1,70 @@
+# ==============================================================================
+# WORK PREFERENCES TEMPLATE
+# Copy to work_preferences.yaml and customize for your job search
+# ==============================================================================
+# cp data_folder/work_preferences.example.yaml data_folder/work_preferences.yaml
+
+# Work location types (set true/false)
+remote: true
+hybrid: true
+onsite: true
+
+# Experience level filter
+experience_level:
+  internship: false
+  entry: true
+  associate: true
+  mid_senior_level: false
+  director: false
+  executive: false
+
+# Job type filter
+job_types:
+  full_time: true
+  contract: true
+  part_time: false
+  temporary: false
+  internship: false
+  other: false
+  volunteer: false
+
+# How recent the job postings should be
+date:
+  all_time: false
+  month: true
+  week: false
+  24_hours: false
+
+# Job titles to search for (add as many as you want)
+positions:
+  - "Software Engineer"
+  - "Full Stack Developer"
+  - "Backend Developer"
+  - "Frontend Developer"
+  - "DevOps Engineer"
+  - "IT Consultant"
+
+# Locations to search in
+locations:
+  - "Your City"
+  - "Remote"
+  - "Your Country"
+
+# Only apply once per company
+apply_once_at_company: true
+
+# Search radius in km
+distance: 100
+
+# Companies to skip (exact or partial name match)
+company_blacklist:
+  - "CompanyToAvoid"
+
+# Job titles to skip (partial match, case-insensitive)
+title_blacklist:
+  - "internship"
+  - "unpaid"
+
+# Locations to skip
+location_blacklist:
+  - "Country you cannot work in"

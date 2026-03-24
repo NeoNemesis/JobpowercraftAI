@@ -62,3 +62,5 @@ class ModernDesign2ResumeGenerator:
 
 
 
+
+

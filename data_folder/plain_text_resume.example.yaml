@@ -1,0 +1,142 @@
+# ==============================================================================
+# RESUME TEMPLATE - Copy this file to plain_text_resume.yaml and fill it in
+# ==============================================================================
+# cp data_folder/plain_text_resume.example.yaml data_folder/plain_text_resume.yaml
+
+personal_information:
+  name: "Your First Name"
+  surname: "Your Last Name"
+  date_of_birth: "DD/MM/YYYY"
+  country: "Your Country"
+  city: "Your City"
+  zip_code: "12345"
+  address: "Your Street Address"
+  phone_prefix: "+1"
+  phone: "0000000000"
+  email: "your.email@example.com"
+  github: "https://github.com/yourusername"
+  linkedin: "https://www.linkedin.com/in/your-profile/"
+  website: "https://yourwebsite.com"   # Optional, leave empty string if none
+
+professional_summary: >
+  Write a 2-3 sentence professional summary here.
+  Focus on your key skills, experience level, and what you're looking for.
+
+cover_letter_profile: >
+  Write your cover letter introduction here.
+  This will be used as the base for all tailored cover letters.
+  Include your background, key strengths, and what motivates you.
+
+education_details:
+  - education_level: "Bachelor's Degree / Candidate / Course"
+    institution: "University or School Name"
+    field_of_study: "Your Field of Study"
+    final_evaluation_grade: "Pass / Grade / GPA"
+    year_of_completion: 2024
+    start_date: "2020"
+    additional_info:
+      focus: "Optional: main focus area"
+      specialization: "Optional: courses or specializations"
+
+experience_details:
+  - position: "Your Job Title"
+    company: "Company Name"
+    employment_period: "2022 - Present"
+    location: "City, Country"
+    industry: "Industry Name"
+    key_responsibilities:
+      - responsibility: "What you did in this role"
+      - responsibility: "Another key responsibility"
+      - responsibility: "A third key responsibility"
+    skills_acquired:
+      - "Skill 1"
+      - "Skill 2"
+      - "Skill 3"
+
+  - position: "Previous Job Title"
+    company: "Previous Company"
+    employment_period: "2019 - 2022"
+    location: "City, Country"
+    industry: "Industry"
+    key_responsibilities:
+      - responsibility: "Key responsibility"
+    skills_acquired:
+      - "Skill 1"
+
+projects:
+  - name: "Project Name"
+    description: "Brief description of what this project does and the technologies used."
+    link: "https://github.com/yourusername/project-name"
+
+achievements:
+  - name: "Achievement Title"
+    description: "Description of the achievement and its impact."
+
+certifications:
+  - name: "Certification Name"
+    description: "Issuing organization and what the certification covers."
+
+languages:
+  - language: "English"
+    proficiency: "Native"
+  - language: "Spanish"
+    proficiency: "Fluent"
+
+interests:
+  - "Technology"
+  - "Open Source"
+  - "Your Interest"
+
+personal_traits:
+  - trait: "Trait Name"
+    description: "Brief description of this trait and how it applies to your work."
+
+technical_skills:
+  operating_systems:
+    - "Windows"
+    - "Linux"
+  hardware:
+    - "Your hardware knowledge"
+  software:
+    - "Software you know"
+  additional:
+    - "Other technical skills"
+
+availability:
+  notice_period: "2 weeks"   # e.g. "Immediately", "1 month", "2 weeks"
+
+salary_expectations:
+  salary_range_usd: "50000 - 70000"   # Annual salary range in USD (or your currency)
+
+self_identification:
+  gender: "Prefer not to say"
+  pronouns: "They/Them"
+  veteran: "No"
+  disability: "No"
+  ethnicity: "Prefer not to say"
+
+legal_authorization:
+  eu_work_authorization: "Yes"
+  us_work_authorization: "No"
+  requires_us_visa: "Yes"
+  requires_us_sponsorship: "Yes"
+  requires_eu_visa: "No"
+  legally_allowed_to_work_in_eu: "Yes"
+  legally_allowed_to_work_in_us: "No"
+  requires_eu_sponsorship: "No"
+  canada_work_authorization: "No"
+  requires_canada_visa: "Yes"
+  legally_allowed_to_work_in_canada: "No"
+  requires_canada_sponsorship: "Yes"
+  uk_work_authorization: "No"
+  requires_uk_visa: "Yes"
+  legally_allowed_to_work_in_uk: "No"
+  requires_uk_sponsorship: "Yes"
+
+work_preferences:
+  remote_work: "Yes"
+  in_person_work: "Yes"
+  open_to_relocation: "No"
+  willing_to_complete_assessments: "Yes"
+  willing_to_undergo_drug_tests: "Yes"
+  willing_to_undergo_background_checks: "Yes"

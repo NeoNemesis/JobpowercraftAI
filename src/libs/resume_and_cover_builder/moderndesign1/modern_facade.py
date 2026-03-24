@@ -61,49 +61,69 @@ class ModernDesign1Facade:
         """Länka till jobb - FÖRBÄTTRAD VERSION MED TIMEOUT-HANTERING"""
         try:
             logger.info(f"🔗 Modern Design 1: Länkar till jobb: {job_url}")
-            
+
             # Lägg till timeout för WebDriver-anrop
             self.driver.set_page_load_timeout(30)  # 30 sekunder timeout
             self.driver.get(job_url)
             self.driver.implicitly_wait(10)
-            
+
             body_element = self.driver.find_element("tag name", "body")
             body_element = body_element.get_attribute("outerHTML")
-            
+
+            # Extrahera ren text från HTML för språkdetektering
+            # Detta ger oss HELA jobbeskrivningen, inte bara sammanfattningen
+            import re
+            from html import unescape
+
+            # Ta bort script och style tags
+            body_text = re.sub(r'<script[^>]*>.*?</script>', '', body_element, flags=re.DOTALL | re.IGNORECASE)
+            body_text = re.sub(r'<style[^>]*>.*?</style>', '', body_text, flags=re.DOTALL | re.IGNORECASE)
+            # Ta bort HTML tags
+            body_text = re.sub(r'<[^>]+>', ' ', body_text)
+            # Avkoda HTML entities
+            body_text = unescape(body_text)
+            # Ta bort extra whitespace
+            body_text = re.sub(r'\s+', ' ', body_text).strip()
+
+            # Spara den fulla texten för språkdetektering
+            self.full_job_text = body_text
+            logger.debug(f"📄 Full jobbtext extraherad: {len(body_text)} tecken")
+            logger.debug(f"📝 Första 200 tecken: {body_text[:200]}")
+
             # Skapa LLMParser med timeout
             self.llm_job_parser = LLMParser(openai_api_key=global_config.API_KEY)
             self.llm_job_parser.set_body_html(body_element)
 
             self.job = Job()
-            
+
             # Extrahera jobbinformation med timeout-hantering
             try:
                 self.job.role = self.llm_job_parser.extract_role()
             except Exception as e:
                 logger.warning(f"⚠️ Kunde inte extrahera roll: {e}")
                 self.job.role = "Dataingenjör"
-            
+
             try:
                 self.job.company = self.llm_job_parser.extract_company_name()
             except Exception as e:
                 logger.warning(f"⚠️ Kunde inte extrahera företag: {e}")
                 self.job.company = "Företag"
-            
+
             try:
                 self.job.description = self.llm_job_parser.extract_job_description()
             except Exception as e:
                 logger.warning(f"⚠️ Kunde inte extrahera beskrivning: {e}")
                 self.job.description = "Vi söker en dataingenjör med erfarenhet av systemintegration och webbutveckling."
-            
+
             try:
                 self.job.location = self.llm_job_parser.extract_location()
             except Exception as e:
                 logger.warning(f"⚠️ Kunde inte extrahera plats: {e}")
                 self.job.location = "Stockholm"
-            
+
             self.job.link = job_url
             logger.info(f"✅ Modern Design 1: Jobb extraherat från URL: {job_url}")
-            
+
         except Exception as e:
             logger.error(f"❌ Modern Design 1: Fel vid jobb-länkning: {e}")
             # Skapa fallback job-objekt
@@ -113,6 +133,7 @@ class ModernDesign1Facade:
             self.job.description = "Vi söker en dataingenjör med erfarenhet av systemintegration och webbutveckling."
             self.job.location = "Stockholm"
             self.job.link = job_url
+            self.full_job_text = "Vi söker en dataingenjör med erfarenhet av systemintegration och webbutveckling."
             logger.info(f"🔄 Modern Design 1: Använder fallback job-objekt")
 
     def ask_job_specific_questions(self, ask_questions: bool = True) -> None:
@@ -207,7 +228,7 @@ class ModernDesign1Facade:
 
         Args:
             style_path: Sökväg till CSS-fil
-            job_description: Jobbeskrivning
+            job_description: Jobbeskrivning (sammanfattad från LLM)
 
         Returns:
             str: Komplett HTML för CV:et (med CSS och struktur)
@@ -230,8 +251,19 @@ class ModernDesign1Facade:
         if self.job_specific_answers:
             generator.set_job_specific_answers(self.job_specific_answers)
 
+        # Använd FULL jobbtext för språkdetektering om tillgänglig
+        # Men använd sammanfattad beskrivning för CV-innehåll
+        text_for_language_detection = getattr(self, 'full_job_text', job_description)
+
+        logger.info(f"🌍 Använder {len(text_for_language_detection)} tecken för språkdetektering")
+        logger.debug(f"📝 Språkdetekteringstext (första 200 tecken): {text_for_language_detection[:200]}")
+
         # Generera komplett HTML med förbättrad struktur
-        complete_html = generator.generate_complete_cv_html(job_description)
+        # Skicka både full text (för språk) och sammanfattning (för innehåll)
+        complete_html = generator.generate_complete_cv_html(
+            job_description=job_description,
+            job_description_for_language=text_for_language_detection
+        )
 
         logger.info(f"✅ Modern Design 1 CV genererat: {len(complete_html)} tecken")
         return complete_html
@@ -249,15 +281,21 @@ class ModernDesign1Facade:
         logger.info("📧 Modern Design 1: Skapar personligt brev")
         
         from .cover_letter_generator import ModernDesign1CoverLetterGenerator
-        
+
         generator = ModernDesign1CoverLetterGenerator(
             self.resume_generator.resume_object,
             self.api_key
         )
-        
+
+        # Använd FULL jobbtext för språkdetektering om tillgänglig
+        text_for_language_detection = getattr(self, 'full_job_text', self.job.description)
+
+        logger.info(f"🌍 Cover Letter: Använder {len(text_for_language_detection)} tecken för språkdetektering")
+
         # Generera HTML
         cover_letter_html = generator.generate_cover_letter_html(
             job_description=self.job.description,
+            job_description_for_language=text_for_language_detection,
             company_name=self.job.company,
             position_title=self.job.role,
             company_address=""
@@ -273,11 +311,7 @@ class ModernDesign1Facade:
         except Exception as e:
             logger.error(f"❌ Modern Design 1: Fel vid Cover Letter PDF-generering: {e}")
             raise
-        finally:
-            try:
-                self.driver.quit()
-                logger.info("🔒 Modern Design 1: WebDriver stängd")
-            except Exception as e:
-                logger.warning(f"⚠️ Modern Design 1: Kunde inte stänga WebDriver: {e}")
-        
+        # ✅ PERFORMANCE FIX: Don't quit driver! Browser pool manages lifecycle
+        # finally block removed - no driver.quit() needed
+
         return result, suggested_name

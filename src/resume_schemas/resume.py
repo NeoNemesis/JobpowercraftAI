@@ -90,6 +90,8 @@ class LegalAuthorization(BaseModel):
 
 class Resume(BaseModel):
     personal_information: Optional[PersonalInformation]
+    professional_summary: Optional[str] = None
+    cover_letter_profile: Optional[str] = None
     education_details: Optional[List[EducationDetails]] = None
     experience_details: Optional[List[ExperienceDetails]] = None
     projects: Optional[List[Project]] = None

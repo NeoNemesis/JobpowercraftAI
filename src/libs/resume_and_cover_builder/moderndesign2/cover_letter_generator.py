@@ -116,11 +116,42 @@ class ModernDesign2CoverLetterGenerator:
         return '''<div><span class="icon">📍</span>Uppsala, Sverige</div>
                     <div><span class="icon">📧</span>email@example.com</div>'''
     
+    def _load_reference_cover_letter(self) -> str:
+        """Laddar referens personligt brev för AI-guidning"""
+        try:
+            ref_path = Path("data_folder/reference_cover_letter.txt")
+            if ref_path.exists():
+                with open(ref_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            return ""
+        except Exception as e:
+            logger.warning(f"⚠️ Kunde inte läsa referens brev: {e}")
+            return ""
+    
     def _ai_generate_cover_letter_content(self, job_description: str, company_name: str, position_title: str) -> dict:
         """AI-genererar innehåll"""
         try:
+            # Ladda referens brev
+            reference_letter = self._load_reference_cover_letter()
+            
             lang_name = "Swedish" if self.language == 'sv' else "English"
             translations = self._get_translations()[self.language]
+            
+            reference_section = ""
+            if reference_letter:
+                reference_section = f"""
+REFERENCE COVER LETTER (Use this as style guide - tone, humility, authenticity):
+---
+{reference_letter[:1000]}
+---
+
+IMPORTANT: Use the TONE and STYLE from this reference letter. Match the:
+- Humble, honest approach
+- Genuine curiosity and enthusiasm
+- Balance between confidence and humility
+- Focus on learning and collaboration
+- Simple, clear language
+"""
             
             prompt = f"""You are a professional cover letter writer. Generate content for a modern, elegant cover letter.
 
@@ -136,13 +167,15 @@ Applicant:
 - Entrepreneur (construction company owner)
 - Healthcare & IT experience
 
+{reference_section}
+
 Instructions:
 1. Write in {lang_name}
 2. THREE compelling sections (2-3 sentences each, KEEP SHORT for one page):
    - {translations['section1_title']}: Who you are and current role
    - {translations['section2_title']} {company_name}: Why THIS company interests you
    - {translations['section3_title']}: Why you're the PERFECT fit
-3. Be PROFESSIONAL, ENTHUSIASTIC, CONCRETE
+3. Be PROFESSIONAL, ENTHUSIASTIC, CONCRETE and HUMBLE (like the reference letter)
 4. Match job requirements
 5. MUST fit on ONE page
 
@@ -267,6 +300,8 @@ Return JSON (no markdown):
         except Exception as e:
             logger.error(f"❌ Fel vid cover letter-generering: {e}")
             raise
+
+
 
 
 

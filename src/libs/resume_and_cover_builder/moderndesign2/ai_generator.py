@@ -42,6 +42,21 @@ class ModernDesign2Generator:
         
         # Modern Design 2 använder befintlig HTML-struktur men med kreativ CSS
         self.load_css_style()
+        
+        # Ladda referens cover letter för ton-guidning
+        self.reference_letter = self._load_reference_cover_letter()
+    
+    def _load_reference_cover_letter(self) -> str:
+        """Laddar referens personligt brev för ton-guidning"""
+        try:
+            ref_path = Path("data_folder/reference_cover_letter.txt")
+            if ref_path.exists():
+                with open(ref_path, 'r', encoding='utf-8') as f:
+                    return f.read()[:500]  # Första 500 tecken för ton
+            return ""
+        except Exception as e:
+            logger.warning(f"⚠️ Kunde inte läsa referens brev: {e}")
+            return ""
     
     def load_css_style(self):
         """Laddar CSS-stil för Modern Design 2"""
@@ -61,6 +76,19 @@ class ModernDesign2Generator:
         
         personal_info = self.resume_object.personal_information
         
+        reference_section = ""
+        if self.reference_letter:
+            reference_section = f"""
+TONE REFERENCE (Match this humble, honest, curious tone):
+{self.reference_letter}
+
+Use this reference's:
+- Humble and honest approach
+- Genuine curiosity and learning mindset
+- Balance between confidence and humility
+- Simple, clear language
+"""
+        
         prompt = f"""
 Du är en expert på att skriva CV-sektioner för KREATIVA DESIGNER. Skapa en personlig information sektion för en kreativ CV med färgglad sidopanel.
 
@@ -73,12 +101,14 @@ Stad: {personal_info.city if personal_info else 'N/A'}
 JOBBESKRIVNING (för anpassning):
 {job_description or "Ingen specifik jobbeskrivning"}
 
+{reference_section}
+
 INSTRUKTIONER:
 1. Skapa en KREATIV och MODERN personlig sektion
 2. Använd HTML-struktur som fungerar med färgglad sidopanel-design
-3. Fokusera på KREATIVITET och INNOVATION
+3. Fokusera på KREATIVITET och INNOVATION men med ÖDMJUKHET
 4. Anpassa till jobbeskrivningen om given
-5. Använd professionell men kreativ ton
+5. Använd professionell men kreativ ton, ÖDMJUK och ÄRLIG (som referensen)
 
 STRUKTUR:
 <section id="personal-info">

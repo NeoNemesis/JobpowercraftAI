@@ -214,8 +214,8 @@ class ModelManager:
         model_info = self.models[model_id]
         
         if model_id == "MODERN_DESIGN_1":
-            from .moderndesign1.ai_generator import ModernDesign1Generator
-            return ModernDesign1Generator(api_key, resume_object)
+            from .moderndesign1.smart_data_generator import SmartDataModernDesign1Generator
+            return SmartDataModernDesign1Generator(resume_object)
             
         elif model_id == "MODERN_DESIGN_2":
             from .moderndesign2.ai_generator import ModernDesign2Generator
@@ -257,7 +257,7 @@ class ModelManager:
             
             if self.selected_model == "MODERN_DESIGN_1":
                 logger.info("🟢 Använder Modern Design 1 specialiserad generator")
-                html_content = ai_generator.generate_complete_cv(job_description)
+                html_content = ai_generator.generate_complete_modern_design1_html(job_description)
                 
             elif self.selected_model == "MODERN_DESIGN_2":
                 logger.info("🟡 Använder Modern Design 2 specialiserad generator")

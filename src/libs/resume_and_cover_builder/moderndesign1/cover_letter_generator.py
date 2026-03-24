@@ -25,51 +25,28 @@ class ModernDesign1CoverLetterGenerator:
         logger.info("📧 ModernDesign1CoverLetterGenerator initialiserad")
     
     def _get_profile_image_base64(self) -> str:
-        """Hämtar profilbild som base64"""
-        try:
-            possible_paths = [
-                "assets/victorvilches.png",
-                "assets/Vilchesab.png",
-                "data_folder/profil_no_bg.png",
-                "data_folder/profil.jpg",
-                "data_folder/profile.png"
-            ]
-            
-            for path in possible_paths:
-                if Path(path).exists():
-                    return image_to_base64(path)
-            
-            return ""
-        except Exception as e:
-            logger.error(f"❌ Fel vid profilbild: {e}")
-            return ""
+        """CLEAN VERSION: Ingen profilbild i personliga brev"""
+        # Clean version använder INTE profilbild - mer professionellt
+        return ""
     
     def _get_translations(self) -> dict:
-        """Översättningar för olika språk"""
+        """Översättningar för olika språk - CLEAN VERSION"""
         return {
             'sv': {
-                'job_title': 'DATAINGENJÖR • SYSTEMUTVECKLARE',
+                'job_title': 'Systemutvecklare',
                 'recipient_title': 'Rekryteringsteam',
-                'job_application': 'Jobbansökan för',
+                'job_application': 'Ansökan:',
                 'salutation': 'Bästa rekryteringsteam,',
-                'section1_title': 'Om Mig',
-                'section2_title': 'Varför',
-                'section3_title': 'Varför Jag',
                 'closing': 'Med vänlig hälsning,',
-                'attachment': 'Bilaga: Curriculum Vitae',
-                'quote': 'Innovation är att se vad alla har sett och tänka vad ingen har tänkt.'
+                'attachment': 'Bilaga: Curriculum Vitae'
             },
             'en': {
-                'job_title': 'COMPUTER ENGINEER • SYSTEM DEVELOPER',
+                'job_title': 'System Developer',
                 'recipient_title': 'Recruitment Team',
-                'job_application': 'Job Application for',
+                'job_application': 'Application for:',
                 'salutation': 'Dear Hiring Manager,',
-                'section1_title': 'About Me',
-                'section2_title': 'Why',
-                'section3_title': 'Why Me',
                 'closing': 'Sincerely,',
-                'attachment': 'Attached: Curriculum Vitae',
-                'quote': 'Innovation is seeing what everyone has seen and thinking what no one has thought.'
+                'attachment': 'Attached: Curriculum Vitae'
             }
         }
     
@@ -92,13 +69,14 @@ class ModernDesign1CoverLetterGenerator:
             country = getattr(personal_info, 'country', 'Sverige')
             website = getattr(personal_info, 'website', 'vilchesab.se')
             
-            # Formatera kontaktinfo
+            # Formatera kontaktinfo - CLEAN VERSION (inline, inga emojis)
             contact_parts = []
-            contact_parts.append(f'<div>📍 {address}, {city}, {zip_code}, {country}</div>')
-            contact_parts.append(f'<div>📱 {phone}</div>')
-            contact_parts.append(f'<div>📧 {email}</div>')
-            contact_parts.append(f'<div>🌐 {website}</div>')
-            
+            contact_parts.append(f'<div>{email}</div>')
+            contact_parts.append(f'<div>{phone}</div>')
+            contact_parts.append(f'<div>{address}, {zip_code} {city}</div>')
+            if website and website != 'vilchesab.se':
+                contact_parts.append(f'<div>{website}</div>')
+
             contact_html = '\n                    '.join(contact_parts)
             
             return full_name, contact_html
@@ -108,113 +86,175 @@ class ModernDesign1CoverLetterGenerator:
             return self._get_fallback_personal_info()
     
     def _get_fallback_personal_info(self) -> tuple:
-        """Fallback personlig info"""
-        contact_html = '''<div>📍 Uppsala, Sverige</div>
-                    <div>📱 070-XXX XX XX</div>
-                    <div>📧 email@example.com</div>
-                    <div>🌐 website.se</div>'''
+        """Fallback personlig info - CLEAN VERSION"""
+        contact_html = '''<div>email@example.com</div>
+                    <div>070-XXX XX XX</div>
+                    <div>Uppsala, Sverige</div>'''
         return "Victor Vilches C.", contact_html
+
+    def _format_text_to_paragraphs(self, text: str) -> str:
+        """Formaterar text till HTML-paragrafer - CLEAN VERSION"""
+        if not text:
+            return ""
+
+        # Dela upp texten på dubbla radbrytningar (paragrafer)
+        paragraphs = text.strip().split('\n\n')
+
+        # Skapa HTML-paragrafer
+        html_paragraphs = []
+        for para in paragraphs:
+            # Ta bort enstaka radbrytningar och extra mellanslag
+            cleaned_para = ' '.join(para.split())
+            if cleaned_para:  # Skippa tomma paragrafer
+                html_paragraphs.append(f'<p>{cleaned_para}</p>')
+
+        return '\n'.join(html_paragraphs)
+    
+    def _load_reference_cover_letter(self) -> str:
+        """Laddar referens personligt brev för AI-guidning"""
+        try:
+            ref_path = Path("data_folder/reference_cover_letter.txt")
+            if ref_path.exists():
+                with open(ref_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            return ""
+        except Exception as e:
+            logger.warning(f"⚠️ Kunde inte läsa referens brev: {e}")
+            return ""
     
     def _ai_generate_cover_letter_content(self, job_description: str, company_name: str, position_title: str) -> dict:
-        """Använder AI för att generera personligt brev innehåll"""
+        """
+        AI-ANPASSAR personligt brev baserat på cover_letter_profile som GRUND/MALL
+        MAX 15% ANPASSNING - resten ska vara identiskt med original
+        """
         try:
-            # Bygg prompt
-            lang_name = "Swedish" if self.language == 'sv' else "English"
-            translations = self._get_translations()[self.language]
-            
-            prompt = f"""You are a professional cover letter writer. Generate content for a modern cover letter.
+            # Hämta cover_letter_profile som grund
+            cover_letter_profile = getattr(self.resume_object, 'cover_letter_profile', '')
 
-Job Description:
-{job_description[:800]}
+            if not self.llm:
+                logger.warning("⚠️ Ingen LLM tillgänglig, använder cover_letter_profile direkt")
+                text = cover_letter_profile.strip() if cover_letter_profile else self._get_fallback_content(company_name, position_title)["section1"]
+                formatted_text = self._format_text_to_paragraphs(text)
+                return {
+                    "section1": formatted_text,
+                    "section2": "",
+                    "section3": ""
+                }
 
+            if cover_letter_profile:
+                logger.info("🤖 AI-anpassar personligt brev (MAX 15% ändring från din mall)")
+
+                # Skapa AI-prompt som använder profilen som grund med MAX 15% ändringar
+                prompt = f"""You are an expert at adapting cover letters while preserving the original voice.
+
+USER'S ORIGINAL COVER LETTER (this is the BASE - keep 85% of it EXACTLY as written):
+{cover_letter_profile}
+
+JOB DETAILS:
 Company: {company_name}
 Position: {position_title}
 
-Applicant Background:
-- Computer Engineering student (2 of 3 years completed)
-- System integration specialist
-- Full-stack web developer
-- Entrepreneur (owns construction company)
-- Experience in healthcare and IT
+TASK:
+Adapt this cover letter for this specific job with MAXIMUM 15% changes.
 
-Instructions:
-1. Write in {lang_name}
-2. Create THREE compelling sections:
-   - Section 1 ({translations['section1_title']}): Brief introduction and current role
-   - Section 2 ({translations['section2_title']} {company_name}): Why interested in THIS company
-   - Section 3 ({translations['section3_title']}): Why YOU are the perfect fit
-3. Be PROFESSIONAL but ENGAGING
-4. Each section should be EXACTLY 2-3 sentences (KEEP IT SHORT!)
-5. Show ENTHUSIASM and CONCRETE SKILLS
-6. Match the job requirements
-7. TOTAL LENGTH: Cover letter MUST fit on ONE page
+CRITICAL RULES:
+1. KEEP 85% of the original text EXACTLY as written - only adapt up to 15%
+2. Preserve the user's authentic voice, style and personality
+3. Make minimal, targeted changes to naturally mention "{company_name}" and "{position_title}"
+4. DO NOT make the text more formal or add flowery language
+5. DO NOT write about "the company's focus" or "your innovative approach" unless specifically mentioned
+6. Keep the same simple, honest and direct tone as the original
+7. Write ALWAYS in SWEDISH (language: sv) - NEVER use English
+8. Return ONLY the adapted letter body - NO salutation ("Hej!"), NO closing ("Med vänliga hälsningar")
+9. Use double line breaks (\\n\\n) to separate paragraphs
+10. NO error messages, NO job descriptions, JUST the adapted text
 
-Return ONLY a JSON object with these keys (no markdown, no explanations):
-{{
-    "section1": "text here",
-    "section2": "text here",
-    "section3": "text here"
-}}
-"""
-            
-            ai_response = self.llm.invoke(prompt)
-            
-            # Försök parsa JSON
-            import json
-            import re
-            
-            # Rensa bort markdown om det finns
-            cleaned = ai_response.replace('```json', '').replace('```', '').strip()
-            
-            # Hitta JSON-objekt
-            json_match = re.search(r'\{[^{}]*"section1"[^{}]*\}', cleaned, re.DOTALL)
-            if json_match:
-                json_str = json_match.group()
-                content = json.loads(json_str)
-                logger.info("✅ AI-genererat cover letter innehåll")
-                return content
+ADAPTED COVER LETTER BODY (plain text with \\n\\n between paragraphs):"""
+
+                try:
+                    # IsolatedLLM returnerar redan en sträng
+                    adapted_content = self.llm(prompt).strip()
+
+                    logger.info(f"✅ AI-anpassat personligt brev genererat ({len(adapted_content)} tecken)")
+
+                    # Formatera till HTML-paragrafer
+                    formatted_content = self._format_text_to_paragraphs(adapted_content)
+
+                    return {
+                        "section1": formatted_content,
+                        "section2": "",
+                        "section3": ""
+                    }
+
+                except Exception as e:
+                    logger.error(f"❌ AI-anpassning misslyckades: {e}")
+                    logger.warning("⚠️ Använder original cover_letter_profile som fallback")
+                    formatted_fallback = self._format_text_to_paragraphs(cover_letter_profile.strip())
+                    return {
+                        "section1": formatted_fallback,
+                        "section2": "",
+                        "section3": ""
+                    }
             else:
-                logger.warning("⚠️ Kunde inte parsa AI-svar, använder fallback")
+                logger.warning("⚠️ Ingen cover_letter_profile hittad i YAML, använder fallback")
                 return self._get_fallback_content(company_name, position_title)
-                
+
         except Exception as e:
-            logger.error(f"❌ AI-generering misslyckades: {e}")
+            logger.error(f"❌ Fel vid AI-generering: {e}")
             return self._get_fallback_content(company_name, position_title)
     
     def _get_fallback_content(self, company_name: str, position_title: str) -> dict:
-        """Fallback innehåll - KORTARE VERSION"""
+        """Fallback innehåll - enkel och ärlig stil"""
         if self.language == 'en':
-            return {
-                "section1": f"I am writing to express my strong interest in the {position_title} position at {company_name}. As a Computer Engineering student with hands-on experience in system integration and full-stack development, I am excited to contribute to your team.",
-                "section2": f"I am particularly drawn to {company_name} because of your innovative approach to technology. Your focus on modern solutions aligns perfectly with my passion for system integration and development.",
-                "section3": "With my combination of academic knowledge and practical experience in web development, databases, and system administration, I am confident I can make valuable contributions. My entrepreneurial background has taught me project management and the importance of delivering quality results."
-            }
+            text = f"""My name is Victor Vilches and I am a curious system developer with a strong interest in technology. I enjoy understanding how systems work and finding solutions to technical challenges.
+
+My background consists of higher education in computer engineering, programming, web development and databases at Gävle University, Uppsala University and Luleå University of Technology. Although I don't have formal work experience as a system developer, I have built up practical experience through self-developed projects.
+
+When I read about the {position_title} position at {company_name}, I recognize myself in the technologies you work with. I have practical experience through my projects where I have developed web applications, automation agents and security systems.
+
+I value working in a team where knowledge sharing and collaboration are in focus, as I believe you develop best when you can both give and receive knowledge. My drive is about continuous development and constantly learning new things."""
         else:
-            return {
-                "section1": f"Jag skriver för att uttrycka mitt starka intresse för {position_title}-rollen hos {company_name}. Som Dataingenjörsstudent med praktisk erfarenhet av systemintegration och fullstack-utveckling ser jag fram emot att bidra till ert team.",
-                "section2": f"Jag är särskilt intresserad av {company_name} på grund av er innovativa approach till teknik. Ert fokus på moderna lösningar passar perfekt med min passion för systemintegration och modern utveckling.",
-                "section3": "Med min kombination av akademisk kunskap och praktisk erfarenhet av webbutveckling, databaser och systemadministration är jag övertygad om att jag kan göra värdefulla bidrag. Min entreprenörsbakgrund har lärt mig projektledning och vikten av att leverera kvalitetsresultat."
-            }
+            text = f"""Jag heter Victor Vilches och är en nyfiken systemutvecklare med ett stort intresse för teknik. Jag gillar att förstå hur system fungerar och att hitta lösningar på tekniska utmaningar.
+
+Min bakgrund består av högskolestudier inom dataingenjörskap, programmering, webbutveckling och databaser vid Gävle högskola, Uppsala universitet och Luleå Tekniska Universitet. Även om jag inte har formell arbetslivserfarenhet som systemutvecklare har jag byggt upp mycket praktisk erfarenhet genom egenutvecklade projekt.
+
+När jag läser om {position_title}-positionen hos {company_name} känner jag igen mig i de teknologier ni arbetar med. Jag har praktisk erfarenhet genom mina projekt där jag utvecklat webbapplikationer, automatiseringsagenter och säkerhetssystem.
+
+Jag värdesätter att arbeta i team där kunskapsutbyte och samarbete står i fokus, eftersom jag tror att man utvecklas bäst när man får både ge och ta i form av kunskap. Min drivkraft handlar om kontinuerlig utveckling och att hela tiden lära mig nya saker."""
+
+        formatted_text = self._format_text_to_paragraphs(text)
+        return {
+            "section1": formatted_text,
+            "section2": "",
+            "section3": ""
+        }
     
-    def generate_cover_letter_html(self, job_description: str, company_name: str, 
-                                   position_title: str, company_address: str = "") -> str:
+    def generate_cover_letter_html(
+        self,
+        job_description: str,
+        company_name: str,
+        position_title: str,
+        company_address: str = "",
+        job_description_for_language: Optional[str] = None
+    ) -> str:
         """
         Genererar komplett personligt brev HTML
-        
+
         Args:
-            job_description: Jobbeskrivning
+            job_description: Sammanfattad jobbeskrivning för brev-innehåll
             company_name: Företagsnamn
             position_title: Position/titel
             company_address: Företagsadress (valfritt)
-        
+            job_description_for_language: FULL jobbeskrivning för språkdetektering (om tillgänglig)
+
         Returns:
             Komplett HTML för personligt brev
         """
         try:
-            # Detektera språk
-            self.language = detect_job_language(job_description)
-            logger.info(f"🌍 Cover Letter språk: {self.language}")
-            
+            # ALLTID SVENSKA - personliga brev ska alltid vara på svenska
+            self.language = 'sv'
+            logger.info("🇸🇪 Personligt brev: ALLTID SVENSKA (hardcoded)")
+
             # Hämta översättningar
             translations = self._get_translations()[self.language]
             
@@ -224,14 +264,11 @@ Return ONLY a JSON object with these keys (no markdown, no explanations):
             # Hämta profilbild
             profile_image = self._get_profile_image_base64()
             
-            # Generera datum
+            # Generera datum (alltid svenska)
             current_date = datetime.now()
-            if self.language == 'en':
-                date_str = current_date.strftime("%B %d, %Y")
-            else:
-                months_sv = ['januari', 'februari', 'mars', 'april', 'maj', 'juni',
-                            'juli', 'augusti', 'september', 'oktober', 'november', 'december']
-                date_str = f"{current_date.day} {months_sv[current_date.month-1]} {current_date.year}"
+            months_sv = ['januari', 'februari', 'mars', 'april', 'maj', 'juni',
+                        'juli', 'augusti', 'september', 'oktober', 'november', 'december']
+            date_str = f"{current_date.day} {months_sv[current_date.month-1]} {current_date.year}"
             
             # AI-generera innehåll
             if self.llm:
@@ -239,40 +276,22 @@ Return ONLY a JSON object with these keys (no markdown, no explanations):
             else:
                 content = self._get_fallback_content(company_name, position_title)
             
-            # Formatera företagsinfo
-            if not company_address:
-                company_address = "" if self.language == 'en' else ""
-            
-            # Formatera jobbansökningstitel
-            job_app_title = f"{translations['job_application']} {position_title}"
-            
-            # Ladda template
-            template_path = Path(__file__).parent / "cover_letter_template.html"
+            # Ladda CLEAN template
+            template_path = Path(__file__).parent / "cover_letter_template_clean.html"
             with open(template_path, 'r', encoding='utf-8') as f:
                 template = f.read()
-            
-            # Ersätt placeholders
+
+            # Ersätt placeholders - CLEAN VERSION (inga företagsnamn/jobbtitel-rader)
             from string import Template
             template_obj = Template(template)
-            
+
             complete_html = template_obj.substitute(
-                profile_image=profile_image,
                 full_name=full_name,
                 job_title=translations['job_title'],
                 contact_info=contact_html,
-                quote=translations['quote'],
                 date=date_str,
-                recipient_title=translations['recipient_title'],
-                company_name=company_name.upper(),
-                company_address=company_address,
-                job_application_title=job_app_title,
                 salutation=translations['salutation'],
-                section1_title=translations['section1_title'],
                 section1_content=content.get('section1', ''),
-                section2_title=f"{translations['section2_title']} {company_name}?",
-                section2_content=content.get('section2', ''),
-                section3_title=translations['section3_title'],
-                section3_content=content.get('section3', ''),
                 closing_text=translations['closing'],
                 attachment_text=translations['attachment']
             )

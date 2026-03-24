@@ -63,8 +63,8 @@ class SmartDataModernDesign1Generator:
                 'contact_title': 'KONTAKT',
                 'experience_title': 'TEKNISK ERFARENHET & KOMPETENSER',
                 'technical_skills_title': 'Tekniska Färdigheter',
-                'job_title': 'DATAINGENJÖR',
-                'summary': 'Dataingenjörsstudent med 2 av 3 år avklarade, specialiserad inom systemintegration och Windows-miljöer. Min erfarenhet omfattar programmering, databaser och webbdesign kombinerat med praktisk erfarenhet från vården och eget företagande.'
+                'job_title': 'SYSTEMUTVECKLARE',
+                'summary': 'Nyfiken systemutvecklare med breda grundkunskaper inom flera tekniska områden. Specialiserad inom systemintegration och Windows-miljöer med erfarenhet av programmering, databaser och webbdesign. Värdesätter teamarbete och kunskapsutbyte, arbetar både självständigt och i samarbete med andra. Drivkraft: kontinuerlig utveckling och att lösa tekniska utmaningar.'
             },
             'en': {
                 'education_title': 'EDUCATION',
@@ -73,8 +73,8 @@ class SmartDataModernDesign1Generator:
                 'contact_title': 'CONTACT',
                 'experience_title': 'TECHNICAL EXPERIENCE & COMPETENCIES',
                 'technical_skills_title': 'Technical Skills',
-                'job_title': 'COMPUTER ENGINEER',
-                'summary': 'Computer Engineering student with 2 out of 3 years completed, specialized in system integration and Windows environments. My experience encompasses programming, databases, and web design combined with practical experience from healthcare and entrepreneurship.'
+                'job_title': 'SYSTEM DEVELOPER',
+                'summary': 'Curious system developer with broad foundational knowledge across multiple technical areas. Specialized in system integration and Windows environments with experience in programming, databases, and web design. Values teamwork and knowledge sharing, works both independently and collaboratively. Driven by continuous development and solving technical challenges.'
             }
         }
     
@@ -93,7 +93,7 @@ class SmartDataModernDesign1Generator:
                 # Översätt till rätt språk och MATCHA MÅLMALLEN EXAKT
                 if self.language == 'en':
                     if 'Dataingenjör' in education_level:
-                        education_level = 'Computer Engineering (ongoing)'
+                        education_level = 'Computer Engineering'
                     elif 'Programmering' in education_level:
                         education_level = 'Programming'
                     elif 'Undersköterska' in education_level:
@@ -108,7 +108,7 @@ class SmartDataModernDesign1Generator:
                 else:
                     # SVENSKA - matcha målmallen exakt
                     if 'Dataingenjör' in education_level:
-                        education_level = 'Dataingenjörskap (pågående)'
+                        education_level = 'Dataingenjörskap'
                     # Andra utbildningar behåller sina namn
                     
                     if 'Gävle Universitet' in institution and 'Uppsala' not in institution:
@@ -254,6 +254,35 @@ class SmartDataModernDesign1Generator:
         else:
             return '''
             <div class="experience-item">
+                <div class="experience-title">ERCP-assistent / Undersköterska</div>
+                <div class="experience-company">Endoskopimottagningen, Akademiska sjukhuset | 2024 - Nuvarande</div>
+                <div class="experience-description">
+                    • Arbetar 80% med ERCP (Endoskopisk Retrograd Kolangiopankreatografi)
+                    • Assistent vid avancerade endoskopiska ingrepp för diagnostik och behandling av lever, gallblåsa, gallgångar och bukspottkörtel
+                    • Förberedelse av medicinteknisk utrustning och instrument för ERCP-procedurer
+                    • Samarbete med gastroenterologer och kirurger under interventionella ingrepp
+                </div>
+            </div>
+
+            <div class="experience-item">
+                <div class="experience-title">Undersköterska</div>
+                <div class="experience-company">Central Operation, Akademiska sjukhuset | 2018 - 2024</div>
+                <div class="experience-description">
+                    • Noggrannhet och struktur i pressade situationer
+                </div>
+            </div>
+
+            <div class="experience-item">
+                <div class="experience-title">Ägare & Projektledare</div>
+                <div class="experience-company">Vilches Entreprenad AB (Bygg & Inredning) | 2020 - Nuvarande</div>
+                <div class="experience-description">
+                    • Äger och driver verksamhet inom bygg och inredning
+                    • Projektlett byggprojekt från start till slut inkl. planering, budgetering och leverans
+                    • Utvecklat IT-lösningar för byggprojekt och projektledning
+                </div>
+            </div>
+
+            <div class="experience-item">
                 <div class="experience-title">Webbutveckling & Systemintegration</div>
                 <div class="experience-company">2022 - Nuvarande</div>
                 <div class="experience-description">
@@ -271,7 +300,7 @@ class SmartDataModernDesign1Generator:
                     • Praktisk erfarenhet av objektorienterad programmering i Java med genomförda kurser och projekt
                     • Utvecklat applikationer i C# med fokus på systemintegration och användargränssnitt
                     • Erfarenhet av Python-programmering med inriktning mot automation och databehandling
-                    • Pågående utveckling av egen AI-agent för personligt bruk
+                    • Utveckling av egen AI-agent
                 </div>
             </div>
 
@@ -283,17 +312,16 @@ class SmartDataModernDesign1Generator:
                     • Konfiguration och hantering av virtuella maskiner för utveckling och testning
                     • Djupgående kunskap om Windows-miljöer med fokus på problemlösning och systemoptimering
                     • Praktisk erfarenhet av nätverksdesign, implementation och säkerhet
-                    • Erfarenhet av hårdvarukonfiguration och systembyggnation
                 </div>
             </div>
 
             <div class="experience-item">
-                <div class="experience-title">Säkerhet & DevOps</div>
-                <div class="experience-company">2021 - Nuvarande</div>
+                <div class="experience-title">Skötare inom Psykiatri</div>
+                <div class="experience-company">Psykiatrin Uppsala | 2008 - 2016</div>
                 <div class="experience-description">
-                    • Praktisk erfarenhet av cybersäkerhet med fokus på webbapplikationssäkerhet
-                    • Implementerat CI/CD-pipelines med GitLab och GitHub Actions
-                    • Erfarenhet av containerisering och orchestrering av utvecklingsmiljöer
+                    • Specialiserad inom KBT, DBT, MI och akutsjukvård
+                    • Beroendeklinik Uppsala 2009: Abstinensbehandling, metadon- och smärtproblematik
+                    • Urologen 2008: Lärlingstid inom medicinsk vård
                 </div>
             </div>'''
     
@@ -497,7 +525,7 @@ class SmartDataModernDesign1Generator:
     def _fallback_education(self) -> str:
         if self.language == 'en':
             return '''            <div class="education-item">
-                • Computer Engineering (ongoing)<br>
+                • Computer Engineering<br>
                 <span style="color: #666">Gävle University, Uppsala University</span>
             </div>
             <div class="education-item">
@@ -510,7 +538,7 @@ class SmartDataModernDesign1Generator:
             </div>'''
         else:
             return '''            <div class="education-item">
-                • Dataingenjörskap (pågående)<br>
+                • Dataingenjörskap<br>
                 <span style="color: #666">Gävle Universitet, Uppsala Universitet</span>
             </div>
             <div class="education-item">

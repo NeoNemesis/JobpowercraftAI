@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         @page {
-            margin: 0;
+            margin: 1cm;
             size: A4;
         }
 
@@ -200,7 +200,7 @@
         function downloadPDF() {
             const element = document.querySelector('.cv-container');
             const opt = {
-                margin: 0,
+                margin: 10,
                 filename: 'victor-vilches-cv.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: {
