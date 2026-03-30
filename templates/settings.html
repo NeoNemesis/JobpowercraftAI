@@ -101,6 +101,59 @@
       </div>
 
     </form>
+
+    <!-- Schemalagd sökning -->
+    <div class="form-section mt-4">
+      <div class="form-section-title">
+        <i class="bi bi-alarm"></i> Schemalagd sökning
+      </div>
+
+      <label class="d-flex align-items-center gap-2 cursor-pointer mb-3">
+        <input type="checkbox" id="sched-enabled" class="form-check-input"
+               style="accent-color:var(--green);width:16px;height:16px"
+               {% if scheduler_cfg.enabled %}checked{% endif %}
+               onchange="updateSchedOptions()">
+        <span>Aktivera automatisk sökning</span>
+      </label>
+
+      <div id="sched-options" style="display:{% if scheduler_cfg.enabled %}block{% else %}none{% endif %}">
+        <div class="mb-3">
+          <label class="form-label small text-muted">Tid</label>
+          <input type="time" id="sched-time" value="{{ scheduler_cfg.time }}"
+                 class="form-control form-control-sm"
+                 style="background:var(--card);border-color:var(--border);color:var(--text);max-width:130px">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small text-muted">Veckodagar</label>
+          <div class="d-flex gap-2 flex-wrap">
+            {% for code, label in [('mon','Mån'),('tue','Tis'),('wed','Ons'),('thu','Tor'),('fri','Fre'),('sat','Lör'),('sun','Sön')] %}
+            <label class="d-flex align-items-center gap-1 cursor-pointer">
+              <input type="checkbox" value="{{ code }}" class="form-check-input sched-day"
+                     style="accent-color:var(--green)"
+                     {% if code in scheduler_cfg.days %}checked{% endif %}>
+              <span class="small">{{ label }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <p class="text-muted small mb-2" id="sched-next-info">
+        {% if scheduler_cfg.enabled and scheduler_cfg.next_run_label %}
+          Nästa sökning: {{ scheduler_cfg.next_run_label }}
+        {% elif scheduler_cfg.enabled %}
+          Inga aktiva dagar valda.
+        {% else %}
+          Schemaläggaren är inaktiverad.
+        {% endif %}
+      </p>
+
+      <button type="button" class="btn btn-green btn-sm" onclick="saveScheduler()">
+        <i class="bi bi-floppy me-1"></i>Spara schema
+      </button>
+    </div>
+
   </div>
 
   <!-- Right: Comparison table + status -->
@@ -210,6 +263,34 @@ function selectModel(modelId, el) {
   group.querySelectorAll('.model-row').forEach(r => r.style.background = 'var(--bg-input)');
   el.style.background = 'var(--green-glow)';
   document.getElementById('sel-model').value = modelId;
+}
+
+// ── Scheduler ────────────────────────────────────────────────
+function updateSchedOptions() {
+  const enabled = document.getElementById('sched-enabled').checked;
+  document.getElementById('sched-options').style.display = enabled ? '' : 'none';
+}
+
+function saveScheduler() {
+  const enabled = document.getElementById('sched-enabled').checked;
+  const t       = document.getElementById('sched-time').value;
+  const days    = [...document.querySelectorAll('.sched-day:checked')].map(el => el.value);
+  fetch('/api/scheduler/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled, time: t, days }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    const info = document.getElementById('sched-next-info');
+    if (data.ok) {
+      info.textContent = data.next_run_label
+        ? 'Nästa sökning: ' + data.next_run_label
+        : enabled ? 'Inga aktiva dagar valda.' : 'Schemaläggaren är inaktiverad.';
+      info.style.color = 'var(--green)';
+      setTimeout(() => { info.style.color = ''; }, 2000);
+    }
+  });
 }
 </script>
 {% endblock %}

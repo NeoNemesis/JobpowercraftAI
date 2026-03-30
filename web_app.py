@@ -17,8 +17,9 @@ import yaml
 import shutil
 import threading
 import queue
+import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import (
     Flask, render_template, request, redirect, url_for,
     flash, send_file, Response, jsonify, stream_with_context,
@@ -73,6 +74,7 @@ PROCESSED_JOBS  = OUTPUT_DIR / 'processed_jobs.json'
 FOUND_JOBS      = OUTPUT_DIR / 'found_jobs.json'
 OPENAI_CALLS    = OUTPUT_DIR / 'open_ai_calls.json'
 TRACKER_FILE    = DATA_DIR / 'tracker_status.json'
+SCHEDULER_FILE  = DATA_DIR / 'scheduler_config.json'
 
 # ============================================================
 # SEARCH STATE (thread-safe via lock)
@@ -117,6 +119,145 @@ def write_env(updates: dict):
     # Reload into os.environ immediately
     for k, v in updates.items():
         os.environ[k] = v
+
+# ============================================================
+# SCHEDULER HELPERS
+# ============================================================
+
+_SCHEDULER_DEFAULTS = {
+    'enabled':        False,
+    'time':           '08:00',
+    'days':           ['mon', 'tue', 'wed', 'thu', 'fri'],
+    'last_run_date':  None,
+}
+
+def load_scheduler_config() -> dict:
+    try:
+        if SCHEDULER_FILE.exists():
+            data = json.loads(SCHEDULER_FILE.read_text(encoding='utf-8'))
+            cfg = dict(_SCHEDULER_DEFAULTS)
+            cfg.update(data)
+            return cfg
+    except Exception:
+        pass
+    return dict(_SCHEDULER_DEFAULTS)
+
+def save_scheduler_config(updates: dict):
+    cfg = load_scheduler_config()
+    cfg.update(updates)
+    SCHEDULER_FILE.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding='utf-8')
+
+def _next_run_label(cfg: dict) -> str:
+    """Compute a human-readable 'nästa sökning' string from scheduler config."""
+    if not cfg.get('enabled'):
+        return None
+    day_map = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
+    day_names_sv = ['måndag', 'tisdag', 'onsdag', 'torsdag', 'fredag', 'lördag', 'söndag']
+    allowed_days = [day_map[d] for d in cfg.get('days', []) if d in day_map]
+    if not allowed_days:
+        return None
+    sched_time = cfg.get('time', '08:00')
+    try:
+        h, m = map(int, sched_time.split(':'))
+    except Exception:
+        return None
+
+    now = datetime.now()
+    for offset in range(8):
+        candidate = now + timedelta(days=offset)
+        if candidate.weekday() not in allowed_days:
+            continue
+        candidate_dt = candidate.replace(hour=h, minute=m, second=0, microsecond=0)
+        if candidate_dt <= now:
+            continue
+        if offset == 0:
+            return f'idag {sched_time}'
+        elif offset == 1:
+            return f'imorgon {sched_time}'
+        else:
+            return f'{day_names_sv[candidate.weekday()]} {sched_time}'
+    return sched_time
+
+def _scheduler_loop():
+    """Background thread: fires search at the scheduled time each day."""
+    while True:
+        try:
+            time.sleep(60)
+            cfg = load_scheduler_config()
+            if not cfg.get('enabled'):
+                continue
+
+            day_map = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}
+            allowed_days = [day_map[d] for d in cfg.get('days', []) if d in day_map]
+            now = datetime.now()
+
+            if now.weekday() not in allowed_days:
+                continue
+
+            sched_time = cfg.get('time', '08:00')
+            try:
+                h, m = map(int, sched_time.split(':'))
+            except Exception:
+                continue
+
+            scheduled_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            today_str = now.strftime('%Y-%m-%d')
+
+            if now >= scheduled_dt and cfg.get('last_run_date') != today_str:
+                with _search_lock:
+                    if search_state.get('running'):
+                        continue
+
+                save_scheduler_config({'last_run_date': today_str})
+
+                # Load saved preferences and fire search
+                prefs = load_yaml(PREFS_YAML) or {}
+                platforms  = prefs.get('platforms', ['indeed', 'jobtech'])
+                max_jobs   = prefs.get('max_jobs', 10)
+                locations  = prefs.get('locations', ['Uppsala'])
+                positions  = prefs.get('positions', [])
+
+                # Reuse the same closure pattern as search_run
+                with _search_lock:
+                    search_state.update({
+                        'running': True, 'output': [], 'error': None,
+                        'progress': 0, 'started_at': now.isoformat(), 'finished_at': None,
+                    })
+
+                def _sched_search(plats=platforms, mj=max_jobs, locs=locations, pos=positions):
+                    global search_state
+                    old_out = sys.stdout
+                    class _SC:
+                        encoding = 'utf-8'
+                        def write(self, t):
+                            if t and t.strip():
+                                search_queue.put(('output', t))
+                            old_out.write(t)
+                        def flush(self): old_out.flush()
+                        def reconfigure(self, **kw): pass
+                    from job_master import JobMaster
+                    try:
+                        sys.stdout = _SC()
+                        jm = JobMaster()
+                        jm.initialize()
+                        jobs = jm.search_jobs(plats, mj, locations=locs, positions=pos)
+                        for i, job in enumerate(jobs or [], 1):
+                            jm.generate_documents_for_job(job, i)
+                        jm.cleanup()
+                    except Exception as e:
+                        search_queue.put(('error', str(e)))
+                    finally:
+                        sys.stdout = old_out
+                        with _search_lock:
+                            search_state['running']     = False
+                            search_state['progress']    = 100
+                            search_state['finished_at'] = datetime.now().isoformat()
+                        search_queue.put(('done', None))
+
+                threading.Thread(target=_sched_search, daemon=True).start()
+        except Exception:
+            pass
+
 
 def is_setup_complete() -> bool:
     """Return True if at least one API key is configured"""
@@ -277,13 +418,16 @@ def check_setup():
 # ============================================================
 @app.route('/')
 def index():
-    stats       = get_stats()
-    folders     = get_job_folders()
-    recent_jobs = [parse_job_folder(f) for f in folders[:8]]
-    model_cfg   = get_current_model_config()
+    stats         = get_stats()
+    folders       = get_job_folders()
+    recent_jobs   = [parse_job_folder(f) for f in folders[:8]]
+    model_cfg     = get_current_model_config()
+    scheduler_cfg = load_scheduler_config()
+    scheduler_cfg['next_run_label'] = _next_run_label(scheduler_cfg)
     return render_template('index.html', stats=stats, recent_jobs=recent_jobs,
                            search_running=search_state['running'],
-                           model_cfg=model_cfg)
+                           model_cfg=model_cfg,
+                           scheduler_cfg=scheduler_cfg)
 
 
 # ============================================================
@@ -693,6 +837,127 @@ def api_stats():
     return jsonify(get_stats())
 
 
+@app.route('/api/stats/detailed')
+def api_stats_detailed():
+    """Aggregated stats for dashboard charts."""
+    try:
+        processed = load_json(PROCESSED_JOBS)
+        folders   = get_job_folders()
+        tracker   = load_tracker()
+        now       = datetime.now()
+
+        # ── Chart 1: Applications per week (last 4 weeks) ──
+        weeks = {}
+        for i in range(3, -1, -1):
+            ws = now - timedelta(days=now.weekday() + 7 * i)
+            weeks[f"v.{ws.isocalendar()[1]}"] = 0
+
+        for f in folders:
+            job = parse_job_folder(f)
+            d = job.get('date', '')
+            if not d:
+                continue
+            try:
+                jd = datetime.strptime(d[:10], '%Y-%m-%d')
+                for i in range(3, -1, -1):
+                    ws = (now - timedelta(days=now.weekday() + 7 * i)).replace(
+                        hour=0, minute=0, second=0, microsecond=0)
+                    if ws <= jd < ws + timedelta(days=7):
+                        weeks[f"v.{ws.isocalendar()[1]}"] = weeks.get(
+                            f"v.{ws.isocalendar()[1]}", 0) + 1
+            except ValueError:
+                pass
+
+        # ── Chart 2: Platform breakdown (from processed_jobs.json) ──
+        platforms = {}
+        for job in processed:
+            src = (job.get('source') or 'Okänd').strip()
+            platforms[src] = platforms.get(src, 0) + 1
+
+        # ── Chart 3: ATS score distribution ──
+        buckets = {'0–20': 0, '20–40': 0, '40–60': 0, '60–80': 0, '80–100': 0}
+        for f in folders:
+            sf = f / 'ats_score.json'
+            if not sf.exists():
+                # Check inside the job subfolder pattern
+                sf = OUTPUT_DIR / f.name / 'ats_score.json'
+            if sf.exists():
+                try:
+                    sc = json.loads(sf.read_text(encoding='utf-8')).get('score', 0)
+                    if   sc < 20: buckets['0–20']   += 1
+                    elif sc < 40: buckets['20–40']  += 1
+                    elif sc < 60: buckets['40–60']  += 1
+                    elif sc < 80: buckets['60–80']  += 1
+                    else:         buckets['80–100'] += 1
+                except Exception:
+                    pass
+
+        # ── Chart 4: Tracker status ──
+        status_counts = {'applied': 0, 'interview': 0, 'offer': 0, 'rejected': 0, 'archived': 0}
+        tracked = set()
+        for fname, data in tracker.items():
+            s = data.get('status', 'applied')
+            if s in status_counts:
+                status_counts[s] += 1
+            tracked.add(fname)
+        # Folders not in tracker → default "applied"
+        for f in folders:
+            if f.name not in tracked:
+                status_counts['applied'] += 1
+
+        return jsonify({
+            'ok': True,
+            'weekly': {
+                'labels': list(weeks.keys()),
+                'values': list(weeks.values()),
+            },
+            'platforms': {
+                'labels': list(platforms.keys()) or ['Ingen data'],
+                'values': list(platforms.values()) or [0],
+            },
+            'ats_distribution': {
+                'labels': list(buckets.keys()),
+                'values': list(buckets.values()),
+            },
+            'tracker_status': {
+                'labels': ['Sökt', 'Intervju', 'Erbjudande', 'Avslag', 'Arkiverad'],
+                'values': [
+                    status_counts['applied'],
+                    status_counts['interview'],
+                    status_counts['offer'],
+                    status_counts['rejected'],
+                    status_counts['archived'],
+                ],
+            },
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/scheduler')
+def api_scheduler():
+    cfg = load_scheduler_config()
+    cfg['next_run_label'] = _next_run_label(cfg)
+    return jsonify(cfg)
+
+
+@app.route('/api/scheduler/save', methods=['POST'])
+def api_scheduler_save():
+    data = request.get_json(force=True) or {}
+    enabled = bool(data.get('enabled', False))
+    t       = data.get('time', '08:00')
+    days    = [d for d in data.get('days', []) if d in
+               ('mon','tue','wed','thu','fri','sat','sun')]
+    # Validate time format
+    import re as _re
+    if not _re.match(r'^\d{2}:\d{2}$', t):
+        t = '08:00'
+    save_scheduler_config({'enabled': enabled, 'time': t, 'days': days})
+    cfg = load_scheduler_config()
+    cfg['next_run_label'] = _next_run_label(cfg)
+    return jsonify({'ok': True, 'next_run_label': cfg['next_run_label']})
+
+
 @app.route('/api/found-jobs')
 def api_found_jobs():
     """Return found_jobs.json + which have been processed"""
@@ -1052,13 +1317,16 @@ def setup_save_cover_letter_route():
 @app.route('/settings')
 def settings():
     from src.libs.resume_and_cover_builder.llm.llm_factory import AVAILABLE_MODELS, PROVIDER_INFO
-    env        = read_env()
-    model_cfg  = get_current_model_config()
+    env           = read_env()
+    model_cfg     = get_current_model_config()
+    scheduler_cfg = load_scheduler_config()
+    scheduler_cfg['next_run_label'] = _next_run_label(scheduler_cfg)
     return render_template('settings.html',
                            env=env,
                            model_cfg=model_cfg,
                            available_models=AVAILABLE_MODELS,
-                           provider_info=PROVIDER_INFO)
+                           provider_info=PROVIDER_INFO,
+                           scheduler_cfg=scheduler_cfg)
 
 
 @app.route('/settings/save', methods=['POST'])
@@ -1279,6 +1547,12 @@ def api_tracker_update():
     }
     save_tracker(tracker)
     return jsonify({'ok': True, 'folder': folder, 'status': status})
+
+
+# ============================================================
+# SCHEDULER STARTUP
+# ============================================================
+threading.Thread(target=_scheduler_loop, daemon=True, name='scheduler').start()
 
 
 # ============================================================
