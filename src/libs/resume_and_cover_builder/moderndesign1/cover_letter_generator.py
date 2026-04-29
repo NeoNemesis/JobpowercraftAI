@@ -33,7 +33,7 @@ class ModernDesign1CoverLetterGenerator:
         """Översättningar för olika språk - CLEAN VERSION"""
         return {
             'sv': {
-                'job_title': 'Systemutvecklare',
+                'job_title': 'Systemutvecklare | Fullstackutvecklare',
                 'recipient_title': 'Rekryteringsteam',
                 'job_application': 'Ansökan:',
                 'salutation': 'Bästa rekryteringsteam,',
@@ -122,10 +122,45 @@ class ModernDesign1CoverLetterGenerator:
             logger.warning(f"⚠️ Kunde inte läsa referens brev: {e}")
             return ""
     
+    def _is_invalid_ai_response(self, text: str) -> bool:
+        """
+        Kontrollerar om AI-svaret är ett felmeddelande eller engelska meta-kommentarer
+        istället för ett korrekt personligt brev på svenska.
+        """
+        if not text or len(text) < 50:
+            return True
+
+        # Engelska nyckelfraser som indikerar att AI returnerade ett felmeddelande
+        english_error_phrases = [
+            "the company's name is not",
+            "is not explicitly mentioned",
+            "the provided context",
+            "i cannot provide",
+            "does not contain",
+            "it appears to be an error",
+            "no specific job description",
+            "cannot determine",
+            "not mentioned in",
+        ]
+        text_lower = text.lower()
+        for phrase in english_error_phrases:
+            if phrase in text_lower:
+                return True
+
+        # Om mer än 40% av meningarna är engelska (innehåller engelska ord utan svenska tecken)
+        sentences = [s.strip() for s in text.split('.') if len(s.strip()) > 20]
+        if not sentences:
+            return True
+        english_count = sum(1 for s in sentences if not any(c in s for c in 'åäöÅÄÖ'))
+        if len(sentences) > 0 and english_count / len(sentences) > 0.4:
+            return True
+
+        return False
+
     def _ai_generate_cover_letter_content(self, job_description: str, company_name: str, position_title: str) -> dict:
         """
         AI-ANPASSAR personligt brev baserat på cover_letter_profile som GRUND/MALL
-        MAX 15% ANPASSNING - resten ska vara identiskt med original
+        MAX 25% ANPASSNING - resten ska vara identiskt med original
         """
         try:
             # Hämta cover_letter_profile som grund
@@ -142,38 +177,49 @@ class ModernDesign1CoverLetterGenerator:
                 }
 
             if cover_letter_profile:
-                logger.info("🤖 AI-anpassar personligt brev (MAX 15% ändring från din mall)")
+                logger.info("🤖 AI-anpassar personligt brev (MAX 25% ändring från din mall)")
 
-                # Skapa AI-prompt som använder profilen som grund med MAX 15% ändringar
+                # Skapa AI-prompt som använder profilen som grund med MAX 25% ändringar
                 prompt = f"""You are an expert at adapting cover letters while preserving the original voice.
 
-USER'S ORIGINAL COVER LETTER (this is the BASE - keep 85% of it EXACTLY as written):
+USER'S ORIGINAL COVER LETTER (this is the BASE - keep 75% of it EXACTLY as written):
 {cover_letter_profile}
 
 JOB DETAILS:
 Company: {company_name}
 Position: {position_title}
 
+JOB DESCRIPTION (use this to understand what skills and experience to emphasize):
+{job_description[:1500] if job_description else 'Not available'}
+
 TASK:
-Adapt this cover letter for this specific job with MAXIMUM 15% changes.
+Adapt this cover letter for this specific job with MAXIMUM 25% changes.
+Read the job description carefully and adjust the letter to highlight relevant skills and experience
+that match what the employer is looking for. Do NOT invent skills or experience not in the original.
 
 CRITICAL RULES:
-1. KEEP 85% of the original text EXACTLY as written - only adapt up to 15%
+1. KEEP 75% of the original text EXACTLY as written - only adapt up to 25%
 2. Preserve the user's authentic voice, style and personality
-3. Make minimal, targeted changes to naturally mention "{company_name}" and "{position_title}"
-4. DO NOT make the text more formal or add flowery language
-5. DO NOT write about "the company's focus" or "your innovative approach" unless specifically mentioned
-6. Keep the same simple, honest and direct tone as the original
-7. Write ALWAYS in SWEDISH (language: sv) - NEVER use English
-8. Return ONLY the adapted letter body - NO salutation ("Hej!"), NO closing ("Med vänliga hälsningar")
-9. Use double line breaks (\\n\\n) to separate paragraphs
-10. NO error messages, NO job descriptions, JUST the adapted text
+3. Use the job description to identify which parts of the original letter to emphasize or adjust
+4. Naturally mention "{company_name}" and "{position_title}" where it fits
+5. DO NOT make the text more formal or add flowery language
+6. DO NOT write about skills or experience not present in the original letter
+7. Keep the same simple, honest and direct tone as the original
+8. Write ALWAYS in SWEDISH (language: sv) - NEVER use English
+9. Return ONLY the adapted letter body - NO salutation ("Hej!"), NO closing ("Med vänliga hälsningar")
+10. Use double line breaks (\\n\\n) to separate paragraphs
+11. NO error messages, NO job descriptions, JUST the adapted text
 
 ADAPTED COVER LETTER BODY (plain text with \\n\\n between paragraphs):"""
 
                 try:
                     # IsolatedLLM returnerar redan en sträng
                     adapted_content = self.llm(prompt).strip()
+
+                    # Validera att AI-svaret inte är ett felmeddelande eller engelska meta-kommentarer
+                    if self._is_invalid_ai_response(adapted_content):
+                        logger.warning("⚠️ AI returnerade ogiltigt svar (engelska/felmeddelande), använder original")
+                        adapted_content = cover_letter_profile.strip()
 
                     logger.info(f"✅ AI-anpassat personligt brev genererat ({len(adapted_content)} tecken)")
 

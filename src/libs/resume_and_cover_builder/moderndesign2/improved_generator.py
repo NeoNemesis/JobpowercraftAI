@@ -60,7 +60,7 @@ class ImprovedModernDesign2Generator:
         """Översättningar"""
         return {
             'sv': {
-                'job_title': 'Dataingenjör • Systemutvecklare',
+                'job_title': 'Systemutvecklare • Fullstackutvecklare',
                 'experience_title': 'Arbetslivserfarenhet',
                 'education_title': 'Utbildning',
                 'skills_title': 'Tekniska Färdigheter',
@@ -136,12 +136,18 @@ class ImprovedModernDesign2Generator:
                 resp_list = []
                 
                 if responsibilities:
-                    first = getattr(responsibilities[0], 'responsibility', '') if hasattr(responsibilities[0], 'responsibility') else str(responsibilities[0])
-                    description = first
-                    
+                    def _resp_text(r):
+                        if isinstance(r, dict):
+                            return r.get('responsibility', '')
+                        if hasattr(r, 'responsibility'):
+                            return r.responsibility
+                        return str(r)
+
+                    description = _resp_text(responsibilities[0])
+
                     # Resten som lista (max 2)
                     for r in responsibilities[1:3]:
-                        text = getattr(r, 'responsibility', '') if hasattr(r, 'responsibility') else str(r)
+                        text = _resp_text(r)
                         if text:
                             resp_list.append(f'<li>{text}</li>')
                 

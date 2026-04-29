@@ -837,6 +837,7 @@ body.sidebar-collapsed .main-content {
 }
 
 /* Column accent colors */
+.col-ready     .kanban-col-header { color: #90a4ae;      border-top: 3px solid #90a4ae; }
 .col-applied   .kanban-col-header { color: var(--green); border-top: 3px solid var(--green); }
 .col-response  .kanban-col-header { color: #64b5f6;      border-top: 3px solid #64b5f6; }
 .col-interview .kanban-col-header { color: #b388ff;      border-top: 3px solid #b388ff; }

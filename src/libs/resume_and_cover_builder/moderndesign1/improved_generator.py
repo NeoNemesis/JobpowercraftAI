@@ -26,19 +26,8 @@ class ImprovedModernDesign1Generator:
         self.api_key = api_key
         self.language = 'sv'  # Standard svenska
         self.llm = create_isolated_llm(api_key) if api_key else None
-        self.job_specific_answers = None  # Svar från jobbspecifika frågor
         logger.info("🎯 ImprovedModernDesign1Generator initialiserad (FÖRBÄTTRAD VERSION)")
 
-    def set_job_specific_answers(self, answers: dict):
-        """
-        Sätt jobbspecifika svar från frågor
-
-        Args:
-            answers: Dictionary med svar från smart_question_generator
-        """
-        self.job_specific_answers = answers
-        logger.info(f"✅ Jobbspecifika svar satta: {len(answers.get('answers', {}))} svar")
-    
     def _get_profile_image_base64(self) -> str:
         """Hämtar profilbild som base64"""
         try:
@@ -72,7 +61,7 @@ class ImprovedModernDesign1Generator:
                 'contact_title': 'KONTAKT',
                 'experience_title': 'YRKESERFARENHET & KOMPETENSER',
                 'technical_skills_title': 'Tekniska Färdigheter',
-                'job_title': 'SYSTEMUTVECKLARE',
+                'job_title': 'SYSTEMUTVECKLARE | FULLSTACKUTVECKLARE',
                 'download_text': 'Ladda ner som PDF'
             },
             'en': {
@@ -82,7 +71,7 @@ class ImprovedModernDesign1Generator:
                 'contact_title': 'CONTACT',
                 'experience_title': 'PROFESSIONAL EXPERIENCE & COMPETENCIES',
                 'technical_skills_title': 'Technical Skills',
-                'job_title': 'SYSTEM DEVELOPER',
+                'job_title': 'SYSTEM DEVELOPER | FULLSTACK DEVELOPER',
                 'download_text': 'Download as PDF'
             }
         }
@@ -407,11 +396,17 @@ class ImprovedModernDesign1Generator:
             # Tidigare filtrerade vi bort Undersköterska vilket tog bort ERCP-assistent (viktig current job!)
             all_experiences = experience_details
 
-            # Om AI finns och jobbeskrivning ges, anpassa innehållet
-            if self.llm and job_description:
+            # Filtrera bort LLM-felmeddelanden som jobbbeskrivning
+            _error_patterns = ["i'm sorry", "i cannot", "cannot provide", "not included in", "no job description", "please verify", "are you a robot"]
+            is_valid_description = job_description and len(job_description.strip()) > 100 and not any(p in job_description.lower() for p in _error_patterns)
+
+            # Om AI finns och giltig jobbeskrivning ges, anpassa innehållet
+            if self.llm and is_valid_description:
                 logger.info("🤖 Använder AI för att anpassa ALLA erfarenheter till jobbeskrivning")
                 return self._ai_adapt_experiences(all_experiences, job_description)
             else:
+                if not is_valid_description:
+                    logger.warning("⚠️ Ingen giltig jobbeskrivning tillgänglig - genererar standarderfarenheter")
                 logger.info("📄 Genererar ALLA standarderfarenheter (ingen AI-anpassning)")
                 return self._format_experiences_standard(all_experiences)
                 
@@ -420,58 +415,40 @@ class ImprovedModernDesign1Generator:
             return self._get_fallback_experience()
     
     def _ai_adapt_experiences(self, experiences: List, job_description: str) -> str:
-        """Använder AI för att anpassa erfarenheter till jobbeskrivning"""
+        """Använder AI för att anpassa erfarenheter till jobbeskrivning (max 25%)"""
         try:
             # Bygg prompt för AI
             experiences_text = self._format_experiences_for_ai(experiences)
 
-            # Lägg till jobbspecifika svar om de finns
-            job_specific_data = ""
-            if self.job_specific_answers and self.job_specific_answers.get('answers'):
-                answers_text = []
-                for answer_data in self.job_specific_answers['answers'].values():
-                    q = answer_data['question']
-                    a = answer_data['answer']
-                    answers_text.append(f"- {q}: {a}")
-
-                job_specific_data = f"""
-
-IMPORTANT - Job-Specific Data (MUST INCLUDE in descriptions):
-{chr(10).join(answers_text)}
-
-Use these EXACT numbers and details in the descriptions where relevant!
-"""
-                logger.info(f"✅ Inkluderar {len(self.job_specific_answers['answers'])} jobbspecifika svar i prompt")
-
-            prompt = f"""You are a professional CV optimizer. You may adapt up to 15% of the text to match the job, but keep 85% EXACTLY as written.
+            prompt = f"""You are a professional CV optimizer. You may adapt up to 25% of the text to match the job, but keep 75% EXACTLY as written.
 
 Job Description:
-{job_description[:500]}
+{job_description[:2000]}
 
 Current Experiences:
 {experiences_text}
-{job_specific_data}
+
 
 CRITICAL RULES:
 
-1. KEEP 85% OF TEXT EXACTLY AS WRITTEN - Only adapt up to 15%
+1. KEEP 75% OF TEXT EXACTLY AS WRITTEN - Only adapt up to 25%
 2. ALL text MUST be in {"Swedish" if self.language == 'sv' else "English"} - NO mixed languages
 3. Translate job titles to {"Swedish" if self.language == 'sv' else "English"}
-4. You may slightly rephrase bullet points to emphasize relevant skills (max 15% change)
-5. NEVER lie or add skills that weren't mentioned
+4. Read the job description and rephrase bullet points to emphasize skills that match (max 25% change)
+5. NEVER lie or add skills that weren't mentioned in the original
 6. Keep the ESSENCE of each job exactly as it was
 
-WHAT YOU CAN DO (15% adaptation):
-- Reorder bullet points (most relevant first)
-- Slightly rephrase to emphasize relevant aspects
+WHAT YOU CAN DO (25% adaptation):
+- Reorder bullet points (most relevant first for this job)
+- Rephrase to emphasize aspects that match the job description
 - Translate job titles consistently
-- Make minor wording improvements
+- Adjust wording to mirror keywords from the job description where truthful
 
 WHAT YOU CANNOT DO:
 - Change the job type (healthcare stays healthcare, construction stays construction)
-- Add technologies or skills not mentioned
+- Add technologies or skills not mentioned in the original
 - Remove important details
-- Exceed 15% changes
+- Exceed 25% changes
 
 LANGUAGE RULE:
 - If language is Swedish: ALL text in Swedish (translate English terms to Swedish context)
@@ -736,41 +713,10 @@ Return ONLY the HTML in {"Swedish" if self.language == 'sv' else "English"}.
             job_description_for_language: FULL jobbeskrivning för språkdetektering (om tillgänglig)
         """
         try:
-            # Använd FULL jobbtext för språkdetektering om tillgänglig
-            # Annars använd sammanfattad beskrivning
-            text_for_detection = job_description_for_language or job_description
-
-            # KRITISK OVERRIDE: Kontrollera om det är ett svenskt företag FÖRST
-            swedish_companies = ['läkemedelsverket', 'sigma', 'deploja', 'försvarsmakten', 'academic', 'akademiska', 'arbetsförmedlingen', 'region', 'kommun', 'landsting', 'uppsala', 'stockholm']
-
-            # Kolla om något svenskt företag nämns i jobbtexten
-            is_swedish_company = False
-            detected_company = ""
-            if text_for_detection:
-                text_lower = text_for_detection.lower()
-                for company in swedish_companies:
-                    if company in text_lower:
-                        is_swedish_company = True
-                        detected_company = company
-                        break
-
-            if is_swedish_company:
-                self.language = 'sv'
-                logger.info(f"🇸🇪 KRITISK OVERRIDE: SVENSKT FÖRETAG '{detected_company}' HITTAD I TEXT - TVINGAR SVENSKA")
-            elif text_for_detection:
-                self.language = detect_job_language(text_for_detection)
-                logger.info(f"🌍 Detekterat språk: {self.language} (baserat på {len(text_for_detection)} tecken)")
-                logger.debug(f"📝 Text för språkdetektering (första 200 tecken): {text_for_detection[:200]}")
-
-                # EXTRA SÄKERHET: Om texten har svenska tecken (å, ä, ö) men detekterades som engelska, tvinga svenska
-                if self.language == 'en' and text_for_detection:
-                    swedish_chars = sum(1 for c in text_for_detection if c in 'åäöÅÄÖ')
-                    if swedish_chars > 5:  # Om mer än 5 svenska tecken
-                        logger.warning(f"⚠️ SÄKERHETSOVERRIDE: Hittade {swedish_chars} svenska tecken men språk var 'en' - TVINGAR SVENSKA")
-                        self.language = 'sv'
-            else:
-                self.language = 'sv'
-                logger.warning("⚠️ Ingen jobbtext tillgänglig, använder svenska som standard")
+            # ALLTID SVENSKA - CV ska alltid vara på svenska för svenska jobbanvändare
+            # (Samma logik som cover_letter_generator.py)
+            self.language = 'sv'
+            logger.info("🇸🇪 CV: ALLTID SVENSKA (hardcoded)")
 
             logger.info(f"🎨 Genererar KOMPLETT CV på {self.language} med RIKTIG data från resume_object")
             

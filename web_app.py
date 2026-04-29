@@ -9,8 +9,23 @@ Starta: python web_app.py
 URL:    http://localhost:5000
 """
 
+import base64
 import os
 import sys
+
+# Tvinga UTF-8 på Windows-konsolen så emojis i loggar inte kraschar
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+
 import re
 import json
 import yaml
@@ -20,6 +35,7 @@ import queue
 import time
 from pathlib import Path
 from datetime import datetime, timedelta
+from urllib.parse import quote as _url_quote
 from flask import (
     Flask, render_template, request, redirect, url_for,
     flash, send_file, Response, jsonify, stream_with_context,
@@ -89,6 +105,7 @@ search_state = {
     'finished_at': None,
 }
 search_queue = queue.Queue()
+_stop_requested = False  # Global stop flag — set by /search/stop
 
 
 # ============================================================
@@ -346,10 +363,13 @@ def parse_job_folder(folder: Path) -> dict:
                 info['company'] = line.split('Företag:', 1)[1].strip()
             elif 'Plats:' in line:
                 info['location'] = line.split('Plats:', 1)[1].strip()
-            elif 'Indeed URL:' in line:
-                info['url'] = line.split('Indeed URL:', 1)[1].strip()
-            elif 'LinkedIn URL:' in line and not info.get('url'):
-                info['url'] = line.split('LinkedIn URL:', 1)[1].strip()
+            elif ' URL:' in line and not info.get('url'):
+                # Matchar alla plattformar: Indeed URL:, LinkedIn URL:, Jobtech/AF URL: osv.
+                candidate = line.split(' URL:', 1)[1].strip()
+                if candidate.startswith('http'):
+                    info['url'] = candidate
+            elif 'Källa:' in line:
+                info['source'] = line.split('Källa:', 1)[1].strip()
             elif 'Hittad:' in line:
                 info['date'] = line.split('Hittad:', 1)[1].strip()
 
@@ -358,24 +378,67 @@ def parse_job_folder(folder: Path) -> dict:
         info['company'] = parts[2] if len(parts) > 2 else ''
         info['title']   = parts[3] if len(parts) > 3 else folder.name
 
+    def _pdf_urls(fname):
+        if not fname:
+            return None, None
+        q = f'folder={_url_quote(folder.name)}&filename={_url_quote(fname)}'
+        return f'/view-pdf?{q}', f'/download-pdf?{q}'
+
+    cv_view_url,     cv_dl_url     = _pdf_urls(cv_file.name     if cv_file     else None)
+    letter_view_url, letter_dl_url = _pdf_urls(letter_file.name if letter_file else None)
+
     return {
-        'folder':      folder.name,
-        'title':       info.get('title', folder.name),
-        'company':     info.get('company', ''),
-        'location':    info.get('location', ''),
-        'url':         info.get('url', ''),
-        'date':        info.get('date', '')[:10] if info.get('date') else '',
-        'cv_file':     cv_file.name     if cv_file     else None,
-        'letter_file': letter_file.name if letter_file else None,
-        'has_letter':  letter_file is not None,
-        'has_cv':      cv_file is not None,
+        'folder':          folder.name,
+        'title':           info.get('title', folder.name),
+        'company':         info.get('company', ''),
+        'location':        info.get('location', ''),
+        'source':          info.get('source', ''),
+        'url':             info.get('url', ''),
+        'date':            info.get('date', '')[:10] if info.get('date') else '',
+        'cv_file':         cv_file.name     if cv_file     else None,
+        'letter_file':     letter_file.name if letter_file else None,
+        'has_letter':      letter_file is not None,
+        'has_cv':          cv_file is not None,
+        'cv_view_url':     cv_view_url,
+        'cv_dl_url':       cv_dl_url,
+        'letter_view_url': letter_view_url,
+        'letter_dl_url':   letter_dl_url,
     }
+
+
+def parse_openai_calls(path) -> tuple:
+    """Parse open_ai_calls.json som innehåller flera JSON-objekt (ett per rad/anrop).
+    Returnerar (total_calls, total_cost)."""
+    total_calls = 0
+    total_cost  = 0.0
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+        if not content:
+            return 0, 0.0
+        # Filen innehåller flera JSON-objekt i rad — dela upp dem
+        decoder = json.JSONDecoder()
+        idx = 0
+        while idx < len(content):
+            content_slice = content[idx:].lstrip()
+            if not content_slice:
+                break
+            offset = len(content[idx:]) - len(content_slice)
+            try:
+                obj, end = decoder.raw_decode(content_slice)
+                total_calls += 1
+                total_cost  += obj.get('total_cost', 0)
+                idx += offset + end
+            except json.JSONDecodeError:
+                break
+    except Exception:
+        pass
+    return total_calls, total_cost
 
 
 def get_stats():
     """Get application statistics"""
     processed   = load_json(PROCESSED_JOBS)
-    openai_data = load_json(OPENAI_CALLS) if OPENAI_CALLS.exists() else {}
     folders     = get_job_folders()
 
     jobs_with_letter = sum(
@@ -383,18 +446,13 @@ def get_stats():
         if any(p.name.startswith('Personligt_Brev') for p in f.iterdir() if p.is_file())
     )
 
-    if isinstance(openai_data, dict):
-        total_cost  = openai_data.get('total_cost', 0)
-        total_calls = openai_data.get('total_calls', 0)
-    else:
-        total_cost  = 0
-        total_calls = 0
+    total_calls, total_cost = parse_openai_calls(OPENAI_CALLS) if OPENAI_CALLS.exists() else (0, 0.0)
 
     return {
         'total_folders':     len(folders),
         'total_processed':   len(processed),
         'jobs_with_letter':  jobs_with_letter,
-        'total_cost':        round(total_cost, 2),
+        'total_cost':        round(total_cost, 4),
         'total_calls':       total_calls,
     }
 
@@ -434,10 +492,74 @@ def index():
 # ROUTES — CV EDITOR
 # ============================================================
 
+PROFILE_PHOTO_PATH = DATA_DIR / 'profile.png'
+ALLOWED_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
+MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
 @app.route('/cv')
 def cv_editor():
     resume = load_yaml(RESUME_YAML)
-    return render_template('cv.html', resume=resume)
+    has_photo = PROFILE_PHOTO_PATH.exists()
+    return render_template('cv.html', resume=resume,
+                           has_profile_photo=has_photo,
+                           now=int(time.time()))
+
+
+@app.route('/cv/photo')
+def cv_photo():
+    """Serve the profile photo"""
+    if not PROFILE_PHOTO_PATH.exists():
+        return 'Ingen bild', 404
+    return send_file(str(PROFILE_PHOTO_PATH), mimetype='image/png')
+
+
+@app.route('/cv/upload-photo', methods=['POST'])
+def cv_upload_photo():
+    """Upload and save profile photo as data_folder/profile.png"""
+    if 'photo' not in request.files:
+        flash('Ingen fil vald.', 'danger')
+        return redirect(url_for('cv_editor'))
+
+    f = request.files['photo']
+    if not f or not f.filename:
+        flash('Ingen fil vald.', 'danger')
+        return redirect(url_for('cv_editor'))
+
+    ext = Path(f.filename).suffix.lower()
+    if ext not in ALLOWED_PHOTO_EXTENSIONS:
+        flash('Ogiltigt format. Använd JPG eller PNG.', 'danger')
+        return redirect(url_for('cv_editor'))
+
+    data = f.read()
+    if len(data) > MAX_PHOTO_BYTES:
+        flash('Bilden är för stor (max 5 MB).', 'danger')
+        return redirect(url_for('cv_editor'))
+
+    # Convert JPG to PNG for consistency (overwrite profile.png)
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(data)).convert('RGB')
+        img.save(str(PROFILE_PHOTO_PATH), 'PNG', optimize=True)
+    except ImportError:
+        # PIL not installed — save raw file (works for PNG, near-works for JPG)
+        PROFILE_PHOTO_PATH.write_bytes(data)
+    except Exception as e:
+        flash(f'Kunde inte spara bilden: {e}', 'danger')
+        return redirect(url_for('cv_editor'))
+
+    flash('Profilbild sparad!', 'success')
+    return redirect(url_for('cv_editor'))
+
+
+@app.route('/cv/delete-photo')
+def cv_delete_photo():
+    """Delete profile photo"""
+    if PROFILE_PHOTO_PATH.exists():
+        PROFILE_PHOTO_PATH.unlink()
+        flash('Profilbild borttagen.', 'success')
+    return redirect(url_for('cv_editor'))
 
 
 @app.route('/cv/save', methods=['POST'])
@@ -672,7 +794,7 @@ def search_run():
             break
 
     def run_search():
-        global search_state
+        global search_state, _stop_requested
         old_stdout = sys.stdout
         old_stderr = sys.stderr
 
@@ -683,34 +805,57 @@ def search_run():
             def write(self, text):
                 if text and text.strip():
                     search_queue.put(('output', text))
-                old_stdout.write(text)
+                if old_stdout is not None:
+                    try:
+                        old_stdout.write(text)
+                    except (UnicodeEncodeError, TypeError):
+                        # Windows cp1252 console can't handle Swedish/emoji chars — ignore
+                        pass
 
             def flush(self):
-                old_stdout.flush()
+                if old_stdout is not None:
+                    old_stdout.flush()
 
             def reconfigure(self, **kwargs):
                 pass  # called by job_master on Windows — safe to ignore
 
-        # Import BEFORE replacing stdout so module-level code runs on real stdout
-        from job_master import JobMaster
-
         try:
+            # Import inside try-finally so search_state is always reset even if import fails
+            from job_master import JobMaster
+
             sys.stdout = OutputCapture()
             sys.stderr = OutputCapture()
+
+            _stop_requested = False
             jm = JobMaster()
-            jm.initialize()
+            jm.stop_requested = False
+            jm.initialize(platforms=platforms)  # Skip browser if only API platforms selected
 
             search_queue.put(('output', f'\n🔍 Plattformar: {", ".join(platforms)}\n'))
             search_queue.put(('output', f'📍 Platser: {", ".join(locations)}\n'))
             search_queue.put(('output', f'🎯 Max jobb: {max_jobs}\n\n'))
 
+            # Propagate stop flag from web_app global to jm instance during search
+            def _sync_stop_flag():
+                import time as _time
+                while search_state.get('running') and not _stop_requested:
+                    _time.sleep(0.3)
+                jm.stop_requested = True  # always signal jm when loop ends (either stop or finish)
+
+            threading.Thread(target=_sync_stop_flag, daemon=True).start()
+
             jobs = jm.search_jobs(platforms, max_jobs, locations=locations, positions=positions)
 
-            if jobs:
+            if _stop_requested:
+                search_queue.put(('output', '\n⛔ Sökning avbruten av användaren.\n'))
+            elif jobs:
                 search_queue.put(('output', f'\n✅ Hittade {len(jobs)} jobb!\n'))
                 search_queue.put(('output', '\n📝 Genererar CV och personliga brev...\n'))
                 successful = 0
                 for i, job in enumerate(jobs, 1):
+                    if _stop_requested:
+                        search_queue.put(('output', '\n⛔ Dokumentgenerering avbruten.\n'))
+                        break
                     search_queue.put(('progress', f'{i}/{len(jobs)}'))
                     search_queue.put(('output', f'\n[{i}/{len(jobs)}] 📄 {job["title"]} @ {job["company"]}\n'))
                     ok = jm.generate_documents_for_job(
@@ -789,9 +934,168 @@ def search_stream():
     )
 
 
+@app.route('/search/stop', methods=['POST'])
+def search_stop():
+    """Stop an ongoing search gracefully"""
+    global _stop_requested
+    if not search_state.get('running'):
+        return jsonify({'status': 'not_running'})
+    _stop_requested = True
+    search_queue.put(('output', '\n⛔ Stoppsignal mottagen — avslutar pågående plattform...\n'))
+    return jsonify({'status': 'stopping'})
+
+
 @app.route('/search/status')
 def search_status():
     return jsonify(search_state)
+
+
+# ============================================================
+# ROUTES — BATCH RE-EVALUATE
+# ============================================================
+
+@app.route('/generate/batch-evaluate', methods=['POST'])
+def batch_evaluate():
+    """Re-evaluate all jobs in found_jobs.json with ATS filter (threshold 60%).
+    Generates CV+cover letter for jobs scoring ≥60%, deletes folders for the rest."""
+    global _stop_requested
+
+    with _search_lock:
+        if search_state.get('running'):
+            return jsonify({'status': 'already_running'})
+        _stop_requested = False
+        search_state.update({
+            'running':      True,
+            'output':       [],
+            'error':        None,
+            'progress':     0,
+            'started_at':   datetime.now().isoformat(),
+            'finished_at':  None,
+        })
+
+    # Flush queue
+    while not search_queue.empty():
+        try:
+            search_queue.get_nowait()
+        except queue.Empty:
+            break
+
+    def run_evaluation():
+        global _stop_requested
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+
+        class OutputCapture:
+            def write(self, text):
+                if text and text.strip():
+                    search_queue.put(('output', text))
+                try:
+                    old_stdout.write(text)
+                except Exception:
+                    pass
+            def flush(self):
+                try:
+                    old_stdout.flush()
+                except Exception:
+                    pass
+            def reconfigure(self, **kwargs):
+                pass
+
+        sys.stdout = OutputCapture()
+        sys.stderr = OutputCapture()
+
+        try:
+            if not FOUND_JOBS.exists():
+                search_queue.put(('error', '❌ Inga sparade jobb hittades. Gör en sökning först.\n'))
+                return
+
+            jobs = json.loads(FOUND_JOBS.read_text(encoding='utf-8'))
+            if not jobs:
+                search_queue.put(('output', '❌ Jobbfilen är tom. Gör en ny sökning.\n'))
+                search_queue.put(('done', None))
+                return
+
+            sep = '=' * 60
+            search_queue.put(('output',
+                f'\n🔍 Utvärderar {len(jobs)} sparade jobb med ATS-filter (tröskel: 60%)...\n'
+                f'{sep}\n'
+            ))
+
+            from job_master import JobMaster
+            jm = JobMaster()
+            # Lazy browser init — only starts if a job needs it
+            jm.initialize(platforms=['jobtech'])
+
+            def _sync_stop():
+                import time as _t
+                while search_state.get('running') and not _stop_requested:
+                    _t.sleep(0.3)
+                jm.stop_requested = True
+
+            threading.Thread(target=_sync_stop, daemon=True).start()
+
+            passed = 0
+            failed = 0
+
+            for i, job in enumerate(jobs, 1):
+                if _stop_requested:
+                    search_queue.put(('output', '\n⛔ Avbruten av användaren.\n'))
+                    break
+
+                search_queue.put(('progress', f'{i}/{len(jobs)}'))
+                search_queue.put(('output',
+                    f'\n[{i}/{len(jobs)}] {job["title"]} @ {job["company"]}\n'
+                ))
+
+                ok = jm.generate_documents_for_job(
+                    job, i,
+                    ats_filter=True,
+                    ats_threshold=60,
+                )
+
+                if ok:
+                    passed += 1
+                    search_queue.put(('output', '   ✅ Dokument genererade! (ATS ≥ 60%)\n'))
+                else:
+                    failed += 1
+                    search_queue.put(('output', '   ❌ Under tröskeln (ATS < 60%) — tar bort mapp...\n'))
+                    # Delete the job folder so it doesn't clutter the jobs list
+                    safe_company = "".join(
+                        c for c in job['company'] if c.isalnum() or c in (' ', '-', '_')
+                    ).strip()
+                    safe_title = "".join(
+                        c for c in job['title'][:30] if c.isalnum() or c in (' ', '-', '_')
+                    ).strip()
+                    folder_path = OUTPUT_DIR / f"Job_{i:03d}_{safe_company}_{safe_title}"
+                    if folder_path.exists():
+                        shutil.rmtree(folder_path)
+                        search_queue.put(('output', f'   🗑️  Borttagen: {folder_path.name}\n'))
+
+            jm.cleanup()
+
+            search_queue.put(('output',
+                f'\n{sep}\n'
+                f'📊 RESULTAT: {passed} godkända, {failed} borttagna av {len(jobs)} jobb\n'
+                f'📂 Filer: {OUTPUT_DIR}\n'
+            ))
+
+        except Exception as e:
+            import traceback
+            err = f'\n❌ Fel: {str(e)}\n{traceback.format_exc()}\n'
+            search_queue.put(('error', err))
+            with _search_lock:
+                search_state['error'] = str(e)
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            with _search_lock:
+                search_state['running']     = False
+                search_state['progress']    = 100
+                search_state['finished_at'] = datetime.now().isoformat()
+            search_queue.put(('done', None))
+
+    threading.Thread(target=run_evaluation, daemon=True).start()
+    return jsonify({'status': 'started'})
 
 
 # ============================================================
@@ -805,23 +1109,52 @@ def jobs():
     return render_template('jobs.html', jobs=job_list)
 
 
-@app.route('/download/<folder>/<filename>')
-def download_file(folder, filename):
-    """Download a PDF document"""
+@app.route('/download-pdf')
+def download_file():
+    """Download a PDF document (query-param based to handle Swedish chars)"""
+    folder   = request.args.get('folder',   '').strip()
+    filename = request.args.get('filename', '').strip()
+    if not folder or not filename:
+        return 'Parametrar saknas', 400
+    if '..' in folder or '..' in filename or '/' in filename or '\\' in filename:
+        return 'Ogiltig förfrågan', 400
     file_path = OUTPUT_DIR / folder / filename
-    if file_path.exists() and file_path.suffix == '.pdf':
+    if file_path.exists() and file_path.suffix.lower() == '.pdf':
         return send_file(str(file_path.resolve()), as_attachment=True,
                          download_name=filename)
     return 'Filen hittades inte', 404
 
 
-@app.route('/view/<folder>/<filename>')
-def view_pdf(folder, filename):
-    """View a PDF in browser"""
+@app.route('/view-pdf')
+def view_pdf():
+    """View a PDF in browser (query-param based to handle Swedish chars)"""
+    folder   = request.args.get('folder',   '').strip()
+    filename = request.args.get('filename', '').strip()
+    if not folder or not filename:
+        return 'Parametrar saknas', 400
+    if '..' in folder or '..' in filename or '/' in filename or '\\' in filename:
+        return 'Ogiltig förfrågan', 400
     file_path = OUTPUT_DIR / folder / filename
-    if file_path.exists() and file_path.suffix == '.pdf':
+    if file_path.exists() and file_path.suffix.lower() == '.pdf':
         return send_file(str(file_path.resolve()), mimetype='application/pdf')
     return 'Filen hittades inte', 404
+
+
+# Legacy path-based routes (redirect to query-param versions)
+@app.route('/download/<path:subpath>')
+def download_file_legacy(subpath):
+    parts = subpath.split('/', 1)
+    if len(parts) == 2:
+        return redirect(f'/download-pdf?folder={parts[0]}&filename={parts[1]}')
+    return 'Ogiltig URL', 400
+
+
+@app.route('/view/<path:subpath>')
+def view_pdf_legacy(subpath):
+    parts = subpath.split('/', 1)
+    if len(parts) == 2:
+        return redirect(f'/view-pdf?folder={parts[0]}&filename={parts[1]}')
+    return 'Ogiltig URL', 400
 
 
 @app.route('/api/jobs')
@@ -830,6 +1163,122 @@ def api_jobs():
     folders  = get_job_folders()
     job_list = [parse_job_folder(f) for f in folders]
     return jsonify(job_list)
+
+
+@app.route('/api/jobs/delete', methods=['POST'])
+def api_delete_job():
+    """Radera ett jobb: ta bort mappen och blockera URL:en från framtida sökningar."""
+    data   = request.get_json(silent=True) or {}
+    folder = data.get('folder', '').strip()
+
+    if not folder or '..' in folder or '/' in folder or '\\' in folder:
+        return jsonify({'ok': False, 'error': 'Ogiltig mapp'}), 400
+
+    job_folder = OUTPUT_DIR / folder
+    if not job_folder.exists():
+        return jsonify({'ok': False, 'error': 'Mappen finns inte'}), 404
+
+    # Hämta URL från job_info.txt så vi kan blockera den
+    job      = parse_job_folder(job_folder)
+    job_url  = job.get('url', '').strip()
+
+    # Säkerställ att URL:en finns i processed_jobs.json (blockerar framtida sökningar)
+    if job_url:
+        try:
+            existing = json.loads(PROCESSED_JOBS.read_text(encoding='utf-8')) if PROCESSED_JOBS.exists() else []
+        except Exception:
+            existing = []
+
+        known_urls = {j.get('url') for j in existing}
+        if job_url not in known_urls:
+            existing.append({
+                'url':            job_url,
+                'title':          job.get('title', ''),
+                'company':        job.get('company', ''),
+                'source':         job.get('source', ''),
+                'status':         'rejected',
+                'processed_date': datetime.now().isoformat(),
+            })
+            PROCESSED_JOBS.write_text(
+                json.dumps(existing, ensure_ascii=False, indent=2), encoding='utf-8'
+            )
+        else:
+            # Markera som rejected om den redan finns
+            changed = False
+            for j in existing:
+                if j.get('url') == job_url and j.get('status') != 'rejected':
+                    j['status'] = 'rejected'
+                    changed = True
+            if changed:
+                PROCESSED_JOBS.write_text(
+                    json.dumps(existing, ensure_ascii=False, indent=2), encoding='utf-8'
+                )
+
+    # Radera mappen med alla filer
+    shutil.rmtree(str(job_folder), ignore_errors=True)
+
+    return jsonify({'ok': True})
+
+
+@app.route('/api/jobs/regenerate-docs', methods=['POST'])
+def api_regenerate_docs():
+    """Bygg om CV och personligt brev för ett jobb med den aktuella grundfilen."""
+    data   = request.get_json(silent=True) or {}
+    folder = data.get('folder', '').strip()
+
+    if not folder or '..' in folder or '/' in folder or '\\' in folder:
+        return jsonify({'ok': False, 'error': 'Ogiltig mapp'}), 400
+
+    job_folder = OUTPUT_DIR / folder
+    if not job_folder.exists():
+        return jsonify({'ok': False, 'error': 'Mappen finns inte'}), 404
+
+    desc_file = job_folder / 'job_description.txt'
+    if not desc_file.exists():
+        return jsonify({'ok': False, 'error': 'Ingen jobbeskrivning sparad för detta jobb'}), 400
+
+    job_description = desc_file.read_text(encoding='utf-8')
+
+    try:
+        from job_master import JobMaster
+        jm = JobMaster()
+        jm.initialize(platforms=[])
+
+        # Bygg ett minimalt jobb-objekt med sparad beskrivning
+        class _FakeJob:
+            description = job_description
+            link = folder
+
+        jm.modern_facade.job = _FakeJob()
+
+        # Generera CV
+        _design = os.getenv('CV_DESIGN', 'design_01_minimal')
+        cv_base64, _ = jm.modern_facade.create_resume_pdf_job_tailored()
+
+        # Ta bort gamla CV-filer och spara ny
+        for old in job_folder.glob('CV_*.pdf'):
+            old.unlink()
+
+        job = parse_job_folder(job_folder)
+        safe_company = ''.join(c for c in job.get('company', 'Foretag') if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title   = ''.join(c for c in job.get('title', 'Jobb')[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+
+        cv_path = job_folder / f'CV_{safe_company}_{safe_title}_{_design}.pdf'
+        cv_path.write_bytes(base64.b64decode(cv_base64))
+
+        # Generera personligt brev
+        cover_base64, _ = jm.modern_facade.create_cover_letter()
+
+        for old in job_folder.glob('Personligt_Brev_*.pdf'):
+            old.unlink()
+
+        cover_path = job_folder / f'Personligt_Brev_{safe_company}_{safe_title}_{_design}.pdf'
+        cover_path.write_bytes(base64.b64decode(cover_base64))
+
+        return jsonify({'ok': True})
+
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.route('/api/stats')
@@ -893,17 +1342,17 @@ def api_stats_detailed():
                     pass
 
         # ── Chart 4: Tracker status ──
-        status_counts = {'applied': 0, 'interview': 0, 'offer': 0, 'rejected': 0, 'archived': 0}
+        status_counts = {'ready': 0, 'applied': 0, 'interview': 0, 'offer': 0, 'rejected': 0, 'archived': 0}
         tracked = set()
         for fname, data in tracker.items():
-            s = data.get('status', 'applied')
+            s = data.get('status', 'ready')
             if s in status_counts:
                 status_counts[s] += 1
             tracked.add(fname)
-        # Folders not in tracker → default "applied"
+        # Folders not in tracker → default "ready"
         for f in folders:
             if f.name not in tracked:
-                status_counts['applied'] += 1
+                status_counts['ready'] += 1
 
         return jsonify({
             'ok': True,
@@ -920,8 +1369,9 @@ def api_stats_detailed():
                 'values': list(buckets.values()),
             },
             'tracker_status': {
-                'labels': ['Sökt', 'Intervju', 'Erbjudande', 'Avslag', 'Arkiverad'],
+                'labels': ['Redo att söka', 'Sökt', 'Intervju', 'Erbjudande', 'Avslag', 'Arkiverad'],
                 'values': [
+                    status_counts['ready'],
                     status_counts['applied'],
                     status_counts['interview'],
                     status_counts['offer'],
@@ -1340,6 +1790,13 @@ def settings_save():
     if provider in key_map and api_key:
         updates[key_map[provider]] = api_key
 
+    linkedin_email    = request.form.get('linkedin_email', '').strip()
+    linkedin_password = request.form.get('linkedin_password', '').strip()
+    if linkedin_email:
+        updates['LINKEDIN_EMAIL'] = linkedin_email
+    if linkedin_password:
+        updates['LINKEDIN_PASSWORD'] = linkedin_password
+
     write_env(updates)
     flash('Inställningar sparade!', 'success')
     return redirect(url_for('settings'))
@@ -1381,15 +1838,45 @@ def _get_cv_text() -> str:
         parts.append(f"Namn: {pi.get('name','')} {pi.get('surname','')}")
     if resume.get('professional_summary'):
         parts.append(f"Sammanfattning: {resume['professional_summary']}")
-    skills = resume.get('skills', [])
-    if skills:
-        parts.append(f"Kompetenser: {', '.join(str(s) for s in skills[:30])}")
-    for exp in resume.get('work_experience', [])[:4]:
+
+    # technical_skills är en dict med undernycklar (software, operating_systems, etc.)
+    tech = resume.get('technical_skills', {})
+    all_skills = []
+    if isinstance(tech, dict):
+        for v in tech.values():
+            if isinstance(v, list):
+                all_skills.extend(v)
+    if all_skills:
+        parts.append(f"Tekniska kompetenser: {', '.join(str(s) for s in all_skills)}")
+
+    # experience_details (inte work_experience)
+    for exp in resume.get('experience_details', [])[:5]:
         if isinstance(exp, dict):
-            parts.append(f"Erfarenhet: {exp.get('position','')} på {exp.get('company','')} ({exp.get('period','')})")
-    for edu in resume.get('education', [])[:3]:
+            pos = exp.get('position', '')
+            comp = exp.get('company', '')
+            period = exp.get('employment_period', '')
+            parts.append(f"Erfarenhet: {pos} på {comp} ({period})")
+            # Inkludera nyckelansvar och tekniker
+            for resp in exp.get('key_responsibilities', [])[:3]:
+                if isinstance(resp, dict):
+                    parts.append(f"  - {resp.get('responsibility', '')}")
+                elif isinstance(resp, str):
+                    parts.append(f"  - {resp}")
+            skills_acq = exp.get('skills_acquired', [])
+            if skills_acq:
+                parts.append(f"  Tekniker: {', '.join(str(s) for s in skills_acq[:8])}")
+
+    # education_details (inte education)
+    for edu in resume.get('education_details', [])[:3]:
         if isinstance(edu, dict):
-            parts.append(f"Utbildning: {edu.get('degree','')} vid {edu.get('institution','')} ({edu.get('period','')})")
+            level = edu.get('education_level', '')
+            inst = edu.get('institution', '')
+            field = edu.get('field_of_study', '')
+            spec = (edu.get('additional_info') or {}).get('specialization', '')
+            parts.append(f"Utbildning: {level} i {field} vid {inst}")
+            if spec:
+                parts.append(f"  Kurser/specialisering: {spec}")
+
     return '\n'.join(parts)
 
 
@@ -1490,11 +1977,12 @@ def api_ats_get(folder):
 # ============================================================
 
 TRACKER_COLUMNS = [
-    ('applied',   'Sökt',        'bi-send',             'col-applied'),
-    ('response',  'Svar',        'bi-chat-dots',        'col-response'),
-    ('interview', 'Intervju',    'bi-person-lines-fill','col-interview'),
-    ('offer',     'Erbjudande',  'bi-trophy',           'col-offer'),
-    ('rejected',  'Avslag',      'bi-x-circle',         'col-rejected'),
+    ('ready',     'Redo att söka','bi-file-earmark-check','col-ready'),
+    ('applied',   'Sökt',         'bi-send',              'col-applied'),
+    ('response',  'Svar',         'bi-chat-dots',         'col-response'),
+    ('interview', 'Intervju',     'bi-person-lines-fill', 'col-interview'),
+    ('offer',     'Erbjudande',   'bi-trophy',            'col-offer'),
+    ('rejected',  'Avslag',       'bi-x-circle',          'col-rejected'),
 ]
 
 
@@ -1504,10 +1992,10 @@ def tracker():
     all_jobs  = [parse_job_folder(f) for f in folders]
     tracker   = load_tracker()
 
-    # Assign default status 'applied' to jobs without a tracker entry
+    # Assign default status 'ready' to jobs without a tracker entry
     for job in all_jobs:
         if job['folder'] not in tracker:
-            tracker[job['folder']] = {'status': 'applied', 'notes': '', 'updated': job.get('date', '')}
+            tracker[job['folder']] = {'status': 'ready', 'notes': '', 'updated': job.get('date', '')}
         job['tracker_status'] = tracker[job['folder']]['status']
         job['tracker_notes']  = tracker[job['folder']].get('notes', '')
 

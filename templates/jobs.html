@@ -12,10 +12,15 @@
       {{ jobs|length }}
     </span>
   </h5>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap">
     <input type="text" id="search-filter" class="form-control form-control-sm"
            placeholder="Filtrera jobb..." style="width:200px;"
            oninput="filterJobs(this.value)">
+    <button class="btn btn-sm" id="batch-eval-btn"
+            onclick="startBatchEvaluate()"
+            style="background:rgba(74,229,74,0.12);color:#4AE54A;border:1px solid #4AE54A;">
+      <i class="bi bi-cpu me-1"></i>ATS-utvärdera alla (60%)
+    </button>
     <a href="/search" class="btn btn-green btn-sm">
       <i class="bi bi-plus-lg me-1"></i>Sök fler
     </a>
@@ -77,11 +82,11 @@
 
                 {% if job.cv_file %}
                   <button class="btn btn-sm btn-outline-green"
-                          onclick="previewPdf('{{ job.folder }}', '{{ job.cv_file }}')"
+                          onclick="previewPdf('{{ job.cv_view_url }}')"
                           title="Förhandsgranska CV">
                     <i class="bi bi-eye"></i>
                   </button>
-                  <a href="/download/{{ job.folder }}/{{ job.cv_file }}"
+                  <a href="{{ job.cv_dl_url }}"
                      class="btn btn-sm btn-outline-secondary" title="Ladda ner CV">
                     <i class="bi bi-file-person"></i>
                   </a>
@@ -89,11 +94,11 @@
 
                 {% if job.letter_file %}
                   <button class="btn btn-sm btn-outline-green"
-                          onclick="previewPdf('{{ job.folder }}', '{{ job.letter_file }}')"
+                          onclick="previewPdf('{{ job.letter_view_url }}')"
                           title="Förhandsgranska personligt brev">
                     <i class="bi bi-file-earmark-text"></i>
                   </button>
-                  <a href="/download/{{ job.folder }}/{{ job.letter_file }}"
+                  <a href="{{ job.letter_dl_url }}"
                      class="btn btn-sm btn-outline-secondary" title="Ladda ner personligt brev">
                     <i class="bi bi-download"></i>
                   </a>
@@ -101,10 +106,24 @@
 
                 {% if job.url %}
                   <a href="{{ job.url }}" target="_blank" rel="noopener"
-                     class="btn btn-sm btn-outline-secondary" title="Öppna jobbannnons">
+                     class="btn btn-sm btn-outline-green d-inline-flex align-items-center gap-1"
+                     title="Öppna jobbannonsen på {{ job.source or 'jobsajten' }}">
                     <i class="bi bi-box-arrow-up-right"></i>
+                    <span style="font-size:.7rem">{{ job.source or 'Ansök' }}</span>
                   </a>
                 {% endif %}
+
+                <button class="btn btn-sm btn-outline-secondary"
+                        onclick="regenerateDocs('{{ job.folder }}')"
+                        title="Bygg om CV och personligt brev med uppdaterad grundfil">
+                  <i class="bi bi-arrow-clockwise"></i>
+                </button>
+
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="confirmDelete('{{ job.folder }}', '{{ job.title|replace("'","\\'")|replace('"','') }}', '{{ job.company|replace("'","\\'")|replace('"','') }}')"
+                        title="Ta bort detta jobb">
+                  <i class="bi bi-trash3"></i>
+                </button>
 
               </div>
             </td>
@@ -125,6 +144,30 @@
     </div>
   </div>
 {% endif %}
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="delete-modal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:var(--bg-card);border-color:var(--border);">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title" style="color:#ff5050;">
+          <i class="bi bi-trash3 me-2"></i>Ta bort jobb
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="mb-1">Vill du ta bort <strong id="delete-job-name"></strong>?</p>
+        <p class="text-muted small mb-0">CV, personligt brev och alla filer för detta jobb raderas. Jobbet visas inte igen vid framtida sökningar.</p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Avbryt</button>
+        <button type="button" class="btn btn-sm btn-danger" id="delete-confirm-btn">
+          <i class="bi bi-trash3 me-1"></i>Ta bort
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- PDF Preview Modal -->
 <div class="modal fade" id="pdf-modal" tabindex="-1">
@@ -186,8 +229,12 @@ function filterJobs(query) {
 }
 
 // ── PDF Preview ──────────────────────────────────────────
-function previewPdf(folder, filename) {
-  document.getElementById('pdf-iframe').src = `/view/${folder}/${filename}`;
+function previewPdf(url) {
+  const iframe = document.getElementById('pdf-iframe');
+  iframe.src = url;
+  iframe.onerror = () => {
+    iframe.srcdoc = '<p style="color:red;padding:2rem">Kunde inte ladda PDF. Ladda ner filen ist\u00e4llet.</p>';
+  };
   new bootstrap.Modal(document.getElementById('pdf-modal')).show();
 }
 
@@ -366,6 +413,43 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {});
   });
 });
+
+// ── Delete Job ───────────────────────────────────────────
+let _deleteFolder = '';
+function confirmDelete(folder, title, company) {
+  _deleteFolder = folder;
+  document.getElementById('delete-job-name').textContent = title + (company ? ' — ' + company : '');
+  new bootstrap.Modal(document.getElementById('delete-modal')).show();
+}
+document.getElementById('delete-confirm-btn').addEventListener('click', function () {
+  if (!_deleteFolder) return;
+  const btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  fetch('/api/jobs/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({folder: _deleteFolder})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      // Ta bort raden från tabellen utan att ladda om sidan
+      const row = document.querySelector(`.job-row[data-folder="${CSS.escape(_deleteFolder)}"]`);
+      if (row) row.remove();
+      bootstrap.Modal.getInstance(document.getElementById('delete-modal')).hide();
+    } else {
+      alert('Fel: ' + (data.error || 'Okänt fel'));
+    }
+  })
+  .catch(() => alert('Nätverksfel — försök igen'))
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-trash3 me-1"></i>Ta bort';
+    _deleteFolder = '';
+  });
+});
 </script>
 
 <style>
@@ -386,4 +470,163 @@ document.addEventListener('DOMContentLoaded', () => {
   border-color: var(--green);
 }
 </style>
+
+<!-- ===== BATCH EVALUATE MODAL ===== -->
+<div class="modal fade" id="batchEvalModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="background:#1a1a1a;border:1px solid #2a2a2a;">
+      <div class="modal-header" style="border-bottom:1px solid #2a2a2a;">
+        <h5 class="modal-title text-green">
+          <i class="bi bi-cpu me-2"></i>ATS-utvärdering av alla jobb
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="batchModalClose"></button>
+      </div>
+      <div class="modal-body p-3">
+
+        <!-- Progress bar -->
+        <div id="batch-progress-wrap" style="display:none;margin-bottom:12px;">
+          <div class="d-flex justify-content-between mb-1">
+            <small class="text-muted">Bearbetar jobb...</small>
+            <small class="text-green" id="batch-progress-text"></small>
+          </div>
+          <div style="height:6px;background:#2a2a2a;border-radius:3px;overflow:hidden;">
+            <div id="batch-progress-bar"
+                 style="height:100%;width:0%;background:#4AE54A;transition:width .4s ease;border-radius:3px;"></div>
+          </div>
+        </div>
+
+        <!-- Terminal -->
+        <div style="background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;
+                    font-family:monospace;font-size:0.78rem;color:#ccc;
+                    height:380px;overflow-y:auto;padding:12px;white-space:pre-wrap;"
+             id="batch-terminal">Klicka på "Starta utvärdering" för att köra ATS-filter på alla hittade jobb.
+
+Jobb med ATS-poäng under 60% tas bort automatiskt.
+Jobb med ATS-poäng ≥ 60% får CV + personligt brev genererat.
+</div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid #2a2a2a;">
+        <button id="batch-start-btn" class="btn btn-green" onclick="runBatchEval()">
+          <i class="bi bi-play-fill me-1"></i>Starta utvärdering
+        </button>
+        <button id="batch-stop-btn" class="btn btn-sm btn-outline-danger" style="display:none;"
+                onclick="stopBatchEval()">
+          <i class="bi bi-stop-fill me-1"></i>Stoppa
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Stäng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let batchEvtSource = null;
+
+function startBatchEvaluate() {
+  const modal = new bootstrap.Modal(document.getElementById('batchEvalModal'));
+  modal.show();
+}
+
+function runBatchEval() {
+  const terminal = document.getElementById('batch-terminal');
+  terminal.textContent = '';
+
+  document.getElementById('batch-start-btn').style.display = 'none';
+  document.getElementById('batch-stop-btn').style.display = 'inline-flex';
+  document.getElementById('batch-progress-wrap').style.display = 'block';
+  document.getElementById('batch-progress-bar').style.width = '0%';
+  document.getElementById('batch-progress-text').textContent = '';
+
+  // Kick off the evaluation
+  fetch('/generate/batch-evaluate', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'already_running') {
+        terminal.textContent += '⚠️  En sökning/utvärdering körs redan. Vänta tills den är klar.\n';
+        document.getElementById('batch-start-btn').style.display = 'inline-flex';
+        document.getElementById('batch-stop-btn').style.display = 'none';
+        return;
+      }
+      // Connect to the SSE stream
+      if (batchEvtSource) batchEvtSource.close();
+      batchEvtSource = new EventSource('/search/stream');
+
+      batchEvtSource.onmessage = function(e) {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'output') {
+          terminal.textContent += msg.text;
+          terminal.scrollTop = terminal.scrollHeight;
+        } else if (msg.type === 'error') {
+          terminal.textContent += msg.text;
+          terminal.scrollTop = terminal.scrollHeight;
+          batchDone();
+        } else if (msg.type === 'progress') {
+          const parts = msg.value.split('/');
+          if (parts.length === 2) {
+            const pct = Math.round((parseInt(parts[0]) / parseInt(parts[1])) * 100);
+            document.getElementById('batch-progress-bar').style.width = pct + '%';
+            document.getElementById('batch-progress-text').textContent = msg.value;
+          }
+        } else if (msg.type === 'done') {
+          batchDone();
+        }
+      };
+
+      batchEvtSource.onerror = function() {
+        batchEvtSource.close();
+        batchDone();
+      };
+    })
+    .catch(err => {
+      terminal.textContent += '❌ Nätverksfel: ' + err + '\n';
+      document.getElementById('batch-start-btn').style.display = 'inline-flex';
+      document.getElementById('batch-stop-btn').style.display = 'none';
+    });
+}
+
+function batchDone() {
+  if (batchEvtSource) { batchEvtSource.close(); batchEvtSource = null; }
+  document.getElementById('batch-start-btn').style.display = 'inline-flex';
+  document.getElementById('batch-stop-btn').style.display = 'none';
+  document.getElementById('batch-progress-bar').style.width = '100%';
+  // Reload the page after a short delay so the jobs list updates
+  setTimeout(() => window.location.reload(), 3000);
+}
+
+function stopBatchEval() {
+  fetch('/search/stop', { method: 'POST' });
+  document.getElementById('batch-stop-btn').disabled = true;
+  document.getElementById('batch-stop-btn').textContent = 'Stoppar...';
+}
+
+function regenerateDocs(folder) {
+  if (!confirm('Bygga om CV och personligt brev för detta jobb med den uppdaterade grundfilen?')) return;
+  const btn = event.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+  fetch('/api/jobs/regenerate-docs', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({folder: folder})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.innerHTML = '<i class="bi bi-check2"></i>';
+      btn.classList.replace('btn-outline-secondary', 'btn-outline-success');
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+      alert('Fel: ' + (data.error || 'Okänt fel'));
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    alert('Nätverksfel, försök igen.');
+  });
+}
+</script>
 {% endblock %}
