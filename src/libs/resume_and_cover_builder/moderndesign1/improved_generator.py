@@ -32,11 +32,10 @@ class ImprovedModernDesign1Generator:
         """Hämtar profilbild som base64"""
         try:
             possible_paths = [
-                "assets/victorvilches.png",
-                "assets/Vilchesab.png",
+                "data_folder/profile.png",
                 "data_folder/profil_no_bg.png",
                 "data_folder/profil.jpg",
-                "data_folder/profile.png"
+                "data_folder/profile.jpg",
             ]
             
             for path in possible_paths:
@@ -104,7 +103,7 @@ class ImprovedModernDesign1Generator:
     def _get_fallback_personal_info(self) -> tuple:
         """Fallback personlig info"""
         translations = self._get_translations()[self.language]
-        return "Victor Vilches C.", translations['job_title'], self._get_default_summary()
+        return "", translations['job_title'], self._get_default_summary()
     
     def _get_default_summary(self) -> str:
         """Returnerar sammanfattning från YAML professional_summary"""
@@ -337,11 +336,11 @@ class ImprovedModernDesign1Generator:
                 logger.warning("⚠️ Ingen kontaktinfo hittad, använder fallback")
                 return self._get_fallback_contact()
             
-            email = getattr(personal_info, 'email', 'victorvilches@protonmail.com')
-            phone = getattr(personal_info, 'phone', '707978547')
-            address = getattr(personal_info, 'address', 'Kvarnängsgatan 24')
-            city = getattr(personal_info, 'city', 'Uppsala')
-            website = getattr(personal_info, 'website', 'vilchesab.se')
+            email = getattr(personal_info, 'email', '')
+            phone = getattr(personal_info, 'phone', '')
+            address = getattr(personal_info, 'address', '')
+            city = getattr(personal_info, 'city', '')
+            website = getattr(personal_info, 'website', '')
             
             # Formatera adress
             full_address = f"{address}, {city}"
@@ -369,16 +368,13 @@ class ImprovedModernDesign1Generator:
     def _get_fallback_contact(self) -> str:
         """Fallback kontakt"""
         return '''<div class="contact-item">
-            <span class="icon">📧</span>victorvilches@protonmail.com
+            <span class="icon">📧</span>email@example.com
         </div>
         <div class="contact-item">
-            <span class="icon">📱</span>070-797 85 47
+            <span class="icon">📱</span>070-000 00 00
         </div>
         <div class="contact-item">
-            <span class="icon">📍</span>Kvarnängsgatan 24, Uppsala
-        </div>
-        <div class="contact-item">
-            <span class="icon">🌐</span>vilchesab.se
+            <span class="icon">📍</span>Stad, Sverige
         </div>'''
     
     def _generate_experience_section(self, job_description: str) -> str:

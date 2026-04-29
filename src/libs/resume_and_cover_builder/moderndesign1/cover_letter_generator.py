@@ -57,24 +57,27 @@ class ModernDesign1CoverLetterGenerator:
             if not personal_info:
                 return self._get_fallback_personal_info()
             
-            name = getattr(personal_info, 'name', 'Victor')
-            surname = getattr(personal_info, 'surname', 'Vilches')
-            full_name = f"{name} {surname} C."
-            
-            email = getattr(personal_info, 'email', 'victorvilches@protonmail.com')
-            phone = getattr(personal_info, 'phone', '707978547')
-            address = getattr(personal_info, 'address', 'Kvarnängsgatan 24')
-            city = getattr(personal_info, 'city', 'Uppsala')
-            zip_code = getattr(personal_info, 'zip_code', '75420')
-            country = getattr(personal_info, 'country', 'Sverige')
-            website = getattr(personal_info, 'website', 'vilchesab.se')
-            
+            name = getattr(personal_info, 'name', '')
+            surname = getattr(personal_info, 'surname', '')
+            full_name = f"{name} {surname}".strip()
+
+            email = getattr(personal_info, 'email', '')
+            phone = getattr(personal_info, 'phone', '')
+            address = getattr(personal_info, 'address', '')
+            city = getattr(personal_info, 'city', '')
+            zip_code = getattr(personal_info, 'zip_code', '')
+            country = getattr(personal_info, 'country', '')
+            website = getattr(personal_info, 'website', '')
+
             # Formatera kontaktinfo - CLEAN VERSION (inline, inga emojis)
             contact_parts = []
-            contact_parts.append(f'<div>{email}</div>')
-            contact_parts.append(f'<div>{phone}</div>')
-            contact_parts.append(f'<div>{address}, {zip_code} {city}</div>')
-            if website and website != 'vilchesab.se':
+            if email:
+                contact_parts.append(f'<div>{email}</div>')
+            if phone:
+                contact_parts.append(f'<div>{phone}</div>')
+            if address or city:
+                contact_parts.append(f'<div>{address}, {zip_code} {city}</div>'.strip(', '))
+            if website:
                 contact_parts.append(f'<div>{website}</div>')
 
             contact_html = '\n                    '.join(contact_parts)
@@ -90,7 +93,7 @@ class ModernDesign1CoverLetterGenerator:
         contact_html = '''<div>email@example.com</div>
                     <div>070-XXX XX XX</div>
                     <div>Uppsala, Sverige</div>'''
-        return "Victor Vilches C.", contact_html
+        return "", contact_html
 
     def _format_text_to_paragraphs(self, text: str) -> str:
         """Formaterar text till HTML-paragrafer - CLEAN VERSION"""

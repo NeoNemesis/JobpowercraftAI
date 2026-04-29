@@ -38,11 +38,10 @@ class ImprovedModernDesign2Generator:
         """Hämtar profilbild"""
         try:
             possible_paths = [
-                "assets/victorvilches.png",
-                "assets/Vilchesab.png",
+                "data_folder/profile.png",
                 "data_folder/profil_no_bg.png",
                 "data_folder/profil.jpg",
-                "data_folder/profile.png"
+                "data_folder/profile.jpg",
             ]
             
             for path in possible_paths:
@@ -86,10 +85,10 @@ class ImprovedModernDesign2Generator:
             if not personal_info:
                 return self._get_fallback_badges()
             
-            email = getattr(personal_info, 'email', 'victorvilches@protonmail.com')
-            phone = getattr(personal_info, 'phone', '707978547')
-            city = getattr(personal_info, 'city', 'Uppsala')
-            website = getattr(personal_info, 'website', 'vilchesab.se')
+            email = getattr(personal_info, 'email', '')
+            phone = getattr(personal_info, 'phone', '')
+            city = getattr(personal_info, 'city', '')
+            website = getattr(personal_info, 'website', '')
             
             badges = []
             badges.append(f'<div class="contact-badge"><span class="icon">📧</span>{email}</div>')
@@ -407,11 +406,11 @@ class ImprovedModernDesign2Generator:
             # Hämta personlig info
             personal_info = self.resume_object.personal_information
             if personal_info:
-                name = getattr(personal_info, 'name', 'Victor')
-                surname = getattr(personal_info, 'surname', 'Vilches')
-                full_name = f"{name} {surname} C."
+                name = getattr(personal_info, 'name', '')
+                surname = getattr(personal_info, 'surname', '')
+                full_name = f"{name} {surname}".strip()
             else:
-                full_name = "Victor Vilches C."
+                full_name = ""
             
             # Generera sektioner
             contact_badges = self._generate_contact_badges()
