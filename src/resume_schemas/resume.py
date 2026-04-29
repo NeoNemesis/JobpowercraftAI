@@ -18,6 +18,7 @@ class PersonalInformation(BaseModel):
     email: Optional[EmailStr]
     github: Optional[HttpUrl] = None
     linkedin: Optional[HttpUrl] = None
+    website: Optional[str] = None
 
 
 class EducationDetails(BaseModel):
@@ -106,18 +107,32 @@ class Resume(BaseModel):
             return [{k: v} for k, v in exam.items()]
         return exam
 
+    @staticmethod
+    def _sanitize_empty_strings(obj):
+        """Convert empty strings to None recursively so Pydantic validators don't reject them."""
+        if isinstance(obj, dict):
+            return {k: Resume._sanitize_empty_strings(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [Resume._sanitize_empty_strings(i) for i in obj]
+        if isinstance(obj, str) and obj.strip() == '':
+            return None
+        return obj
+
     def __init__(self, yaml_str: str):
         try:
             # Parse the YAML string
             data = yaml.safe_load(yaml_str)
 
-            if 'education_details' in data:
-                for ed in data['education_details']:
+            # Convert empty strings to None before Pydantic validation
+            data = self._sanitize_empty_strings(data)
+
+            if 'education_details' in (data or {}):
+                for ed in data['education_details'] or []:
                     if 'exam' in ed:
                         ed['exam'] = self.normalize_exam_format(ed['exam'])
 
             # Create an instance of Resume from the parsed data
-            super().__init__(**data)
+            super().__init__(**(data or {}))
         except yaml.YAMLError as e:
             raise ValueError("Error parsing YAML file.") from e
         except Exception as e:
