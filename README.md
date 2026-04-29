@@ -35,8 +35,8 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/NeoNemesis/JobpowercraftAI.git
-cd JobpowercraftAI
+git clone https://github.com/NeoNemesis/ApplyMindAI.git
+cd ApplyMindAI
 ```
 
 ### 2. Create and activate a virtual environment
@@ -57,23 +57,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Configure your profile
-
-```bash
-# Copy example files
-cp data_folder_example/secrets.yaml.example data_folder/secrets.yaml
-cp data_folder_example/job_scraper_config.yaml data_folder/job_scraper_config.yaml
-```
-
-Edit `data_folder/secrets.yaml` and add your OpenAI API key:
-
-```yaml
-openai_api_key: "sk-..."
-```
-
-Edit `data_folder/job_scraper_config.yaml` with your job search preferences.
-
-### 5. Launch
+### 4. Launch
 
 **Desktop app (recommended):**
 ```bash
@@ -83,8 +67,18 @@ pythonw ApplyMindAI.pyw
 **Web interface only:**
 ```bash
 python web_app.py
-# Then open http://localhost:5000
+# Open http://localhost:5000
 ```
+
+### 5. Setup wizard (first launch)
+
+The app redirects you automatically to `/setup` on first launch:
+
+1. **API key** — enter your OpenAI, Anthropic or Google Gemini key
+2. **Upload your CV** — paste plain text or upload a PDF — the app converts it to a structured profile via AI
+3. **Done** — start searching for jobs
+
+> Your API key and resume data are saved locally and never committed to version control.
 
 ---
 
